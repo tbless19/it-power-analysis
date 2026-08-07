@@ -1,0 +1,66 @@
+
+{
+  "_comment": "IT Power Simulation — configuration constants.",
+
+  "hardware": {
+    "H100":    { "label": "NVIDIA H100 GPU",              "p_max": 700, "rho": 0.129, "category": "GPU" },
+    "A100":    { "label": "NVIDIA A100 GPU",              "p_max": 400, "rho": 0.288, "category": "GPU" },
+    "TPUv4":   { "label": "Google TPU v4",                "p_max": 450, "rho": 0.176, "category": "Accelerator" },
+    "CPU_STD": { "label": "Standard CPU Server",          "p_max": 400, "rho": 0.450, "category": "CPU" },
+    "CPU_HPC": { "label": "High Performance CPU Server",  "p_max": 550, "rho": 0.451, "category": "CPU" },
+    "V100":    { "label": "NVIDIA V100 GPU (M100)",       "p_max": 300, "rho": 0.117, "category": "GPU" }
+  },
+
+  "stage_defaults": {
+    "training":    { "u_min": 0.90, "u_max": 1.00, "u_default": 0.95 },
+    "fine_tuning": { "u_min": 0.60, "u_max": 0.90, "u_default": 0.75 },
+    "inference":   { "u_min": 0.10, "u_max": 0.60, "u_default": 0.30 }
+  },
+
+  "stage_physics": {
+    "training": {
+      "_ref": "Li et al.(2024) Fig.9/10 + Shoeybi et al.(2019) Megatron-LM",
+      "u_plateau": 0.95, "sigma_plateau": 0.008,
+      "wave_amp": 0.03, "wave_period_ms": 480000,
+      "checkpoint_ms": 300000, "checkpoint_dur_ms": 20000,
+      "checkpoint_u": 0.25, "checkpoint_sigma": 0.02,
+      "checkpoint_u_min": 0.18, "checkpoint_u_max": 0.32
+    },
+    "fine_tuning": {
+      "_ref": "Li et al.(2024) Fig.13, Section III-C",
+      "u_plateau": 0.75, "sigma_plateau": 0.010,
+      "wave_amp": 0.05, "wave_period_ms": 480000,
+      "eval_period_ms": 240000, "eval_dur_ms": 30000,
+      "eval_u": 0.12, "eval_sigma": 0.02,
+      "eval_u_min": 0.08, "eval_u_max": 0.18
+    },
+    "inference": {
+      "_ref": "Li et al.(2024) Fig.14/15, Eq.16",
+      "u_burst": 0.82, "u_idle": 0.04,
+      "sigma_burst": 0.06, "sigma_idle": 0.01,
+      "idle_u_max": 0.15, "service_s": 20, "default_lambda": 100
+    }
+  },
+
+  "simulation": {
+    "calc_step_ms": 1000, "micro_max_pts": 600, "macro_max_pts": 7200
+  },
+
+  "replay": {
+    "default_hardware_type": "V100",
+    "stage_classify_for": ["V100"],
+    "stage_thresholds": {
+      "training_min_duration_h":   1.0,
+      "training_min_nodes":        16,
+      "finetuning_min_duration_h": 0.25,
+      "finetuning_max_duration_h": 1.0,
+      "inference_max_nodes":       4
+    }
+  },
+
+  "defaults": {
+    "duration_min": 120, "step_min": 2,
+    "network_kw": 0, "storage_kw": 0, "misc_kw": 0,
+    "inventory": { "H100": 256, "A100": 128, "TPUv4": 64, "CPU_STD": 32, "CPU_HPC": 16, "V100": 128 }
+  }
+}

@@ -1,0 +1,20 @@
+# Local / generated
+.DS_Store
+__pycache__/
+*.pyc
+.venv/
+.idea/
+
+# ExaData and other large telemetry (keep local only)
+data/
+validate/data/
+**/plugin=*/part-*.parquet
+**/plugin=*/part-*.csv
+part-000.parquet
+
+# Large local extracts / samples
+*.parquet
+ganglia_sample.csv
+gpu_power_sample.csv
+logics_sample.csv
+job.csv

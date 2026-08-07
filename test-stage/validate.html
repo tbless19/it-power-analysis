@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>IT Power — Validation</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#f4f3ef; --surface:#ffffff; --surface-alt:#f9f8f5;
+  --border:#dddad3; --border-strong:#c5c1b8;
+  --text:#1a1916; --text2:#5c5a54; --muted:#908d85;
+  --accent:#1d4ed8; --accent-dim:#dbeafe;
+  --green:#15803d; --red:#b91c1c; --amber:#b45309;
+  --meas:#15803d; --mod:#1d4ed8;
+  --mono:'IBM Plex Mono',monospace; --sans:'IBM Plex Sans',system-ui,sans-serif; --r:5px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13px;height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+
+#topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 14px;height:42px;display:flex;align-items:center;gap:12px;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,.06);}
+#topbar h1{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--accent);letter-spacing:.05em;}
+#ftag{font-family:var(--mono);font-size:9px;color:var(--muted);background:var(--surface-alt);border:1px solid var(--border);border-radius:999px;padding:2px 10px;white-space:nowrap;}
+.spacer{flex:1;}
+#spill{font-family:var(--mono);font-size:9px;padding:3px 10px;border-radius:999px;border:1px solid var(--border);color:var(--muted);transition:all .2s;}
+#spill.loading{border-color:var(--accent);color:var(--accent);background:var(--accent-dim);}
+#spill.error{border-color:var(--red);color:var(--red);background:#fee2e2;}
+#spill.ok{border-color:var(--green);color:var(--green);background:#dcfce7;}
+
+#sbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 14px;height:46px;display:flex;align-items:center;gap:26px;flex-shrink:0;}
+.sv{display:flex;flex-direction:column;gap:1px;}
+.sl{font-family:var(--mono);font-size:8px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);}
+.sn{font-family:var(--mono);font-size:14px;font-weight:600;color:var(--text);}
+.sn.good{color:var(--green);} .sn.bad{color:var(--red);}
+.sn small{font-size:9px;color:var(--muted);font-weight:400;}
+.sdiv{width:1px;height:26px;background:var(--border);}
+
+#main{display:flex;flex:1;overflow:hidden;min-height:0;}
+#left{width:248px;flex-shrink:0;border-right:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column;background:var(--surface);}
+#center{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;}
+#right{width:236px;flex-shrink:0;border-left:1px solid var(--border);overflow-y:auto;background:var(--surface);}
+
+.psec{border-bottom:1px solid var(--border);}
+.ph{padding:7px 12px;font-family:var(--mono);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);background:var(--surface-alt);}
+.pb{padding:10px 12px;display:flex;flex-direction:column;gap:8px;}
+.f{display:flex;flex-direction:column;gap:3px;}
+.f label{font-family:var(--mono);font-size:8px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);}
+.f input,.f select{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-family:var(--mono);font-size:11px;padding:5px 8px;outline:none;transition:border-color .15s;width:100%;}
+.f input:focus,.f select:focus{border-color:var(--accent);}
+.fr{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+.hint{font-family:var(--mono);font-size:8px;color:var(--muted);line-height:1.4;}
+
+.btn{padding:7px 12px;border-radius:var(--r);font-family:var(--mono);font-size:11px;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text2);transition:all .12s;width:100%;font-weight:700;letter-spacing:.04em;}
+.btn:hover{border-color:var(--accent);color:var(--accent);}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+.btn.primary:hover{opacity:.88;color:#fff;}
+.btn.primary:disabled{opacity:.5;cursor:not-allowed;}
+
+#chart-area{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0;}
+#overlay-section{flex:0 0 70%;padding:10px 14px 4px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;}
+#overlay-section h3{font-family:var(--mono);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px;flex-shrink:0;display:flex;gap:10px;align-items:center;}
+.lg{display:inline-flex;align-items:center;gap:5px;font-weight:400;text-transform:none;letter-spacing:0;}
+.lg i{width:14px;height:0;border-top-width:2px;border-top-style:solid;display:inline-block;}
+#overlay-wrap{position:relative;flex:1;min-height:0;}
+#overlay-canvas{position:absolute;inset:0;width:100%;height:100%;}
+#resid-section{flex:1;padding:6px 14px 8px;display:flex;flex-direction:column;min-height:0;}
+#resid-section h3{font-family:var(--mono);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:4px;flex-shrink:0;}
+#resid-wrap{position:relative;flex:1;min-height:0;}
+#resid-canvas{position:absolute;inset:0;width:100%;height:100%;}
+
+.kv{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:9px;color:var(--text2);gap:8px;}
+.kv span:last-child{color:var(--text);font-weight:600;text-align:right;}
+.tag{display:inline-block;font-family:var(--mono);font-size:8px;padding:1px 6px;border-radius:999px;border:1px solid var(--border);margin:1px 2px 1px 0;}
+.tag.training{color:#991b1b;background:#fee2e2;border-color:#f87171;}
+.tag.fine_tuning{color:#92400e;background:#fef3c7;border-color:#fbbf24;}
+.tag.inference{color:#1e3a8a;background:#dbeafe;border-color:#60a5fa;}
+
+#placeholder{flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center;padding:24px;}
+#placeholder b{color:var(--text2);font-size:13px;}
+
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:2px;}
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <h1>IT POWER — VALIDATION</h1>
+  <span id="ftag">measured vs P = Σk Nk·Pk_max [ηk·Σm(um·αm) + (1−ηk)·ρk]</span>
+  <div class="spacer"></div>
+  <span id="spill">connecting…</span>
+</div>
+
+<div id="sbar">
+  <div class="sv"><div class="sl">Power MAPE</div><div class="sn" id="s-mape">— <small>/ 15%</small></div></div>
+  <div class="sv"><div class="sl">Energy Err</div><div class="sn" id="s-eerr">— <small>/ 10%</small></div></div>
+  <div class="sdiv"></div>
+  <div class="sv"><div class="sl">Peak Measured</div><div class="sn" id="s-pmeas">— kW</div></div>
+  <div class="sv"><div class="sl">Peak Modeled</div><div class="sn" id="s-pmod">— kW</div></div>
+  <div class="sv"><div class="sl">Bias</div><div class="sn" id="s-bias">— kW</div></div>
+  <div class="sdiv"></div>
+  <div class="sv"><div class="sl">Jobs</div><div class="sn" id="s-jobs">—</div></div>
+</div>
+
+<div id="main">
+  <div id="left">
+    <div class="psec">
+      <div class="ph">Dataset</div>
+      <div class="pb">
+        <div class="f"><label>Root path</label><input id="c-root" type="text" placeholder="/data/dataset=main_dataset"></div>
+        <div class="f"><label>Month</label><select id="c-month"><option value="">— load months —</option></select></div>
+        <div class="hint" id="month-hint"></div>
+        <div class="fr">
+          <div class="f"><label>Start (UTC)</label><input id="c-t0" type="datetime-local" step="60"></div>
+          <div class="f"><label>End (UTC)</label><input id="c-t1" type="datetime-local" step="60"></div>
+        </div>
+        <div class="hint">Window: <span id="win-len">—</span></div>
+      </div>
+    </div>
+    <div class="psec">
+      <div class="ph">Comparison</div>
+      <div class="pb">
+        <div class="f"><label>Measured signal</label><select id="c-source"></select></div>
+        <div class="f"><label>Metric (optional override)</label>
+          <input id="c-metric" list="metric-list" placeholder="auto"><datalist id="metric-list"></datalist></div>
+        <div class="hint" id="metric-hint"></div>
+        <div class="fr">
+          <div class="f"><label>Grid (s)</label><input id="c-grid" type="number" min="10" step="10" value="60"></div>
+          <div class="f"><label>Model draws</label><input id="c-draws" type="number" min="1" max="20" value="3"></div>
+        </div>
+        <div class="f"><label>V100 inventory (GPUs)</label><input id="c-inv" type="number" min="1" value="3920"></div>
+        <div class="hint">draws &gt;1 averages model rng passes to damp stochastic noise.</div>
+      </div>
+    </div>
+    <div class="psec">
+      <div class="pb">
+        <button class="btn primary" id="run-btn" onclick="runValidate()">▶ Validate window</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="center">
+    <div id="placeholder">
+      <b>No validation yet</b>
+      <div>Pick a month and window on the left, choose a measured signal, then hit Validate.<br>
+      The measured cluster power and the modeled fleet power are overlaid on one wall-clock axis.</div>
+    </div>
+    <div id="chart-area" style="display:none">
+      <div id="overlay-section">
+        <h3>Power overlay — measured vs modeled
+          <span class="lg"><i style="border-color:var(--meas)"></i>measured</span>
+          <span class="lg"><i style="border-color:var(--mod);border-top-style:dashed"></i>modeled</span>
+        </h3>
+        <div id="overlay-wrap"><canvas id="overlay-canvas"></canvas></div>
+      </div>
+      <div id="resid-section">
+        <h3>Residual (modeled − measured), kW</h3>
+        <div id="resid-wrap"><canvas id="resid-canvas"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="right">
+    <div class="psec">
+      <div class="ph">Run Summary</div>
+      <div class="pb" id="meta-panel"><div class="hint">—</div></div>
+    </div>
+    <div class="psec">
+      <div class="ph">Stage Mix</div>
+      <div class="pb" id="stage-panel"><div class="hint">—</div></div>
+    </div>
+    <div class="psec">
+      <div class="ph">Energy</div>
+      <div class="pb" id="energy-panel"><div class="hint">—</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+let CFG=null, MONTHS=[], SOURCES={}, DEFAULT_SOURCE='';
+const MF=sz=>({family:"'IBM Plex Mono',monospace",size:sz});
+const $=id=>document.getElementById(id);
+function setStatus(t,m){const el=$('spill');el.className=t;el.textContent=m;}
+
+// ── init ──────────────────────────────────────────────────────────────────
+async function init(){
+  try{
+    CFG=await (await fetch('/api/config')).json();
+    const sw=CFG.validate;
+    SOURCES=sw.sources; DEFAULT_SOURCE=sw.default_source;
+    buildSources(null);
+    $('c-grid').value=sw.grid_seconds;
+    $('c-inv').value=(sw.inventory&&sw.inventory[sw.hardware_type])||3920;
+    $('c-root').value=''; // filled from /api/windows
+    await loadMonths();
+    setStatus('ok','ready');
+  }catch(e){setStatus('error','cannot reach server — run: python validate_server.py');}
+}
+
+function buildSources(month){
+  const sel=$('c-source'), prev=sel.value;
+  const entries=Object.entries(SOURCES)
+    .filter(([k,v])=> !month || (month.plugins||[]).includes(v.plugin));
+  if(!entries.length){
+    sel.innerHTML='<option value="">— no power plugin in this month —</option>';
+    return;
+  }
+  sel.innerHTML=entries.map(([k,v])=>`<option value="${k}">${v.label}</option>`).join('');
+  const keys=entries.map(e=>e[0]);
+  sel.value = keys.includes(prev)?prev : (keys.includes(DEFAULT_SOURCE)?DEFAULT_SOURCE:keys[0]);
+}
+
+async function loadMonths(){
+  const root=$('c-root').value.trim();
+  const url='/api/windows'+(root?('?root='+encodeURIComponent(root)):'');
+  const w=await (await fetch(url)).json();
+  if(!$('c-root').value) $('c-root').value=w.root||'';
+  MONTHS=w.months||[];
+  if(!w.exists){
+    $('month-hint').innerHTML=`<span style="color:var(--red)">root not found: ${w.root}</span> — edit the path and press Enter`;
+    $('c-month').innerHTML='<option value="">—</option>';
+    return;
+  }
+  if(!MONTHS.length){$('month-hint').textContent='no year_month partitions under root';return;}
+  $('c-month').innerHTML='<option value="">— select —</option>'+
+    MONTHS.map(m=>`<option value="${m.year_month}">${m.year_month}  (${m.plugins.length} plugins)</option>`).join('');
+  $('month-hint').textContent=`${MONTHS.length} month(s) available`;
+}
+
+function onMonth(){
+  const ym=$('c-month').value;
+  const m=MONTHS.find(x=>x.year_month===ym);
+  if(!m)return;
+  buildSources(m);
+  refreshMetrics();
+  // default to a 6h window starting at the month's reported start
+  const s=new Date(m.start);
+  const e=new Date(s.getTime()+6*3600*1000);
+  $('c-t0').value=toLocal(s); $('c-t1').value=toLocal(e);
+  $('month-hint').textContent=`data ${m.start.replace('T',' ').slice(0,16)} → ${m.end.replace('T',' ').slice(0,16)} UTC`;
+  updWin();
+}
+// datetime-local shows wall-clock; we treat inputs AS UTC to match dataset timestamps.
+async function refreshMetrics(){
+  const ym=$('c-month').value, src=$('c-source').value, plugin=SOURCES[src]?.plugin;
+  const dl=$('metric-list'); if(dl)dl.innerHTML='';
+  $('metric-hint').textContent='';
+  if(!ym||!plugin)return;
+  try{
+    const root=$('c-root').value.trim();
+    const u=`/api/metrics?ym=${encodeURIComponent(ym)}&plugin=${encodeURIComponent(plugin)}`+(root?`&root=${encodeURIComponent(root)}`:'');
+    const r=await (await fetch(u)).json();
+    const ms=r.metrics||[];
+    if(dl)dl.innerHTML=ms.map(x=>`<option value="${x.metric}">`).join('');
+    if(ms.length)$('metric-hint').textContent=`${plugin}: ${ms.slice(0,6).map(x=>x.metric).join(', ')}${ms.length>6?'…':''}`;
+  }catch(e){/* discovery is best-effort */}
+}
+
+function toLocal(d){const p=n=>String(n).padStart(2,'0');
+  return `${d.getUTCFullYear()}-${p(d.getUTCMonth()+1)}-${p(d.getUTCDate())}T${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`;}
+function asUTCISO(v){return v?`${v}:00Z`:null;}
+function updWin(){
+  const a=$('c-t0').value,b=$('c-t1').value;
+  if(!a||!b){$('win-len').textContent='—';return;}
+  const ms=new Date(b+'Z')-new Date(a+'Z');
+  $('win-len').textContent=ms>0?(ms/3600000).toFixed(2)+' h':'invalid';
+}
+
+// ── validate ──────────────────────────────────────────────────────────────
+let overlayC=null, residC=null;
+async function runValidate(){
+  const ym=$('c-month').value, t0=asUTCISO($('c-t0').value), t1=asUTCISO($('c-t1').value);
+  if(!ym){setStatus('error','pick a month');return;}
+  if(!t0||!t1){setStatus('error','set start and end');return;}
+  const body={
+    root:$('c-root').value.trim(), year_month:ym, t0, t1,
+    source:$('c-source').value,
+    metric:$('c-metric').value.trim(),
+    grid_seconds:parseInt($('c-grid').value)||60,
+    draws:parseInt($('c-draws').value)||1,
+    inventory:{[CFG.validate.hardware_type]:parseInt($('c-inv').value)||3920},
+  };
+  $('run-btn').disabled=true; setStatus('loading','loading jobs + power…');
+  try{
+    const r=await fetch('/api/validate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.error||('HTTP '+r.status));
+    render(d);
+    setStatus('ok',`${d.meta.task_count} jobs · ${d.metrics.n_points} pts`);
+  }catch(e){setStatus('error',e.message);}
+  finally{$('run-btn').disabled=false;}
+}
+
+function render(d){
+  $('placeholder').style.display='none';
+  $('chart-area').style.display='flex';
+  const m=d.metrics;
+  // stat bar with target colouring
+  setStat('s-mape',m.mape_pct,'%',15,'/ 15%');
+  setStat('s-eerr',m.energy_err_pct,'%',10,'/ 10%');
+  const pmeas=Math.max(...d.measured.filter(x=>x!=null));
+  const pmod=Math.max(...d.modeled);
+  $('s-pmeas').textContent=isFinite(pmeas)?pmeas.toFixed(1)+' kW':'— kW';
+  $('s-pmod').textContent=pmod.toFixed(1)+' kW';
+  $('s-bias').textContent=(m.bias_kw??'—')+(m.bias_kw!=null?' kW':'');
+  $('s-jobs').textContent=d.meta.task_count;
+
+  // measured missing? tell the user and surface the real metric names
+  if(d.meta.measured_samples===0){
+    const ms=(d.meta.available_metrics||[]).map(x=>x.metric);
+    const dl=$('metric-list'); if(dl&&ms.length)dl.innerHTML=ms.map(x=>`<option value="${x}">`).join('');
+    $('metric-hint').innerHTML=`<span style="color:var(--red)">no measured rows for "${d.meta.metric}".</span> `+
+      (ms.length?`available: ${ms.slice(0,8).join(', ')} — type one above`:'no metrics found in plugin');
+    setStatus('error','measured signal empty — pick a metric');
+  }else{
+    $('metric-hint').textContent='';
+  }
+
+  drawOverlay(d); drawResid(d); fillPanels(d);
+}
+function setStat(id,val,unit,target,suffix){
+  const el=$(id);
+  if(val==null){el.className='sn';el.innerHTML=`— <small>${suffix}</small>`;return;}
+  el.className='sn '+(val<=target?'good':'bad');
+  el.innerHTML=`${val}${unit} <small>${suffix}</small>`;
+}
+
+function drawOverlay(d){
+  const cfg={
+    type:'line',
+    data:{labels:d.labels,datasets:[
+      {label:'Measured',data:d.measured,borderColor:'#15803d',borderWidth:2,pointRadius:0,tension:0.1,spanGaps:true,fill:false},
+      {label:'Modeled',data:d.modeled,borderColor:'#1d4ed8',borderWidth:2,borderDash:[5,4],pointRadius:0,tension:0.1,fill:false},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},
+        tooltip:{titleFont:MF(9),bodyFont:MF(10),
+          callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y==null?'—':c.parsed.y.toFixed(1)+' kW'}`}}},
+      scales:{
+        x:{title:{display:true,text:'Time (UTC)',font:MF(9),color:'#908d85'},
+           grid:{color:'#ece9e3'},ticks:{font:MF(9),color:'#908d85',maxTicksLimit:12,maxRotation:0}},
+        y:{title:{display:true,text:'Power (kW)',font:MF(9),color:'#908d85'},
+           grid:{color:'#ece9e3'},ticks:{font:MF(9),color:'#908d85'},min:0}},
+    }};
+  if(overlayC){overlayC.data=cfg.data;overlayC.update('none');}
+  else overlayC=new Chart($('overlay-canvas').getContext('2d'),cfg);
+}
+function drawResid(d){
+  const cfg={
+    type:'line',
+    data:{labels:d.labels,datasets:[
+      {label:'Residual',data:d.residual,borderColor:'#b45309',backgroundColor:'rgba(180,83,9,0.10)',
+       borderWidth:1.2,pointRadius:0,tension:0.1,spanGaps:true,fill:true}]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,
+      plugins:{legend:{display:false},
+        tooltip:{titleFont:MF(8),bodyFont:MF(9),callbacks:{label:c=>(c.parsed.y==null?'—':c.parsed.y.toFixed(1)+' kW')}}},
+      scales:{
+        x:{grid:{color:'#f4f3ef'},ticks:{font:MF(8),color:'#908d85',maxTicksLimit:12,maxRotation:0}},
+        y:{title:{display:true,text:'Δ kW',font:MF(8),color:'#908d85'},
+           grid:{color:c=>c.tick.value===0?'#c5c1b8':'#f4f3ef'},ticks:{font:MF(8),color:'#908d85'}}},
+    }};
+  if(residC){residC.data=cfg.data;residC.update('none');}
+  else residC=new Chart($('resid-canvas').getContext('2d'),cfg);
+}
+function fillPanels(d){
+  const mt=d.meta,m=d.metrics;
+  $('meta-panel').innerHTML=`
+    <div class="kv"><span>Month</span><span>${mt.year_month}</span></div>
+    <div class="kv"><span>Source</span><span>${mt.source}</span></div>
+    <div class="kv"><span>Grid</span><span>${mt.grid_seconds}s · ${m.n_points} pts</span></div>
+    <div class="kv"><span>Model draws</span><span>${mt.draws}</span></div>
+    <div class="kv"><span>Job rows</span><span>${mt.job_rows}</span></div>
+    <div class="kv"><span>Modeled tasks</span><span>${mt.task_count}</span></div>
+    <div class="kv"><span>Skipped</span><span>${mt.skipped}</span></div>
+    <div class="kv"><span>Meas. samples</span><span>${mt.measured_samples}</span></div>
+    <div class="kv"><span>Compared pts</span><span>${m.n_compared}</span></div>`;
+  const sc=mt.stage_counts||{};
+  $('stage-panel').innerHTML=['training','fine_tuning','inference']
+    .filter(s=>sc[s]).map(s=>`<span class="tag ${s}">${s.replace('_','-')}: ${sc[s]}</span>`).join('')||'<div class="hint">—</div>';
+  $('energy-panel').innerHTML=`
+    <div class="kv"><span>Measured</span><span>${m.energy_meas_kwh} kWh</span></div>
+    <div class="kv"><span>Modeled</span><span>${m.energy_mod_kwh} kWh</span></div>
+    <div class="kv"><span>Error</span><span>${m.energy_err_pct==null?'—':m.energy_err_pct+'%'}</span></div>`;
+}
+
+// ── events ────────────────────────────────────────────────────────────────
+$('c-root').addEventListener('keydown',e=>{if(e.key==='Enter')loadMonths();});
+$('c-month').addEventListener('change',onMonth);
+$('c-source').addEventListener('change',refreshMetrics);
+$('c-t0').addEventListener('input',updWin);
+$('c-t1').addEventListener('input',updWin);
+init();
+</script>
+</body>
+</html>

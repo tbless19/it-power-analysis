@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>IT Power Simulation</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#f4f3ef; --surface:#ffffff; --surface-alt:#f9f8f5;
+  --border:#dddad3; --border-strong:#c5c1b8;
+  --text:#1a1916; --text2:#5c5a54; --muted:#908d85;
+  --accent:#1d4ed8; --accent-dim:#dbeafe;
+  --green:#15803d; --red:#b91c1c; --amber:#b45309;
+  --mono:'IBM Plex Mono',monospace; --sans:'IBM Plex Sans',system-ui,sans-serif; --r:5px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13px;height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+
+/* Top bar */
+#topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 14px;height:42px;display:flex;align-items:center;gap:12px;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,.06);}
+#topbar h1{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--accent);letter-spacing:.05em;}
+#ftag{font-family:var(--mono);font-size:9px;color:var(--muted);background:var(--surface-alt);border:1px solid var(--border);border-radius:999px;padding:2px 10px;white-space:nowrap;}
+.spacer{flex:1;}
+#spill{font-family:var(--mono);font-size:9px;padding:3px 10px;border-radius:999px;border:1px solid var(--border);color:var(--muted);transition:all .2s;}
+#spill.loading{border-color:var(--accent);color:var(--accent);background:var(--accent-dim);}
+#spill.error{border-color:var(--red);color:var(--red);background:#fee2e2;}
+#spill.ok{border-color:var(--green);color:var(--green);background:#dcfce7;}
+
+/* Stats bar */
+#sbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 14px;height:38px;display:flex;align-items:center;gap:28px;flex-shrink:0;}
+.sv{display:flex;flex-direction:column;gap:1px;}
+.sl{font-family:var(--mono);font-size:8px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);}
+.sn{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--text);}
+
+/* Main */
+#main{display:flex;flex:1;overflow:hidden;min-height:0;}
+#left{width:216px;flex-shrink:0;border-right:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column;background:var(--surface);}
+#center{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;}
+#right{width:232px;flex-shrink:0;border-left:1px solid var(--border);overflow-y:auto;background:var(--surface);}
+
+/* Panels */
+.psec{border-bottom:1px solid var(--border);}
+.ph{padding:7px 12px;font-family:var(--mono);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);display:flex;align-items:center;justify-content:space-between;background:var(--surface-alt);}
+.pb{padding:10px 12px;display:flex;flex-direction:column;gap:7px;}
+.f{display:flex;flex-direction:column;gap:3px;}
+.f label{font-family:var(--mono);font-size:8px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);}
+.f input,.f select{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-family:var(--mono);font-size:11px;padding:5px 8px;outline:none;transition:border-color .15s;width:100%;}
+.f input:focus,.f select:focus{border-color:var(--accent);}
+.fr{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+
+/* Timeline */
+#tl-section{flex-shrink:0;border-bottom:1px solid var(--border);}
+#tl-header{display:flex;align-items:center;justify-content:space-between;padding:5px 12px;background:var(--surface-alt);border-bottom:1px solid var(--border);}
+#tl-header span{font-family:var(--mono);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);}
+.tl-htools{display:flex;align-items:center;gap:6px;}
+.zb{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);color:var(--muted);font-family:var(--mono);font-size:11px;padding:1px 8px;cursor:pointer;transition:all .1s;}
+.zb:hover{border-color:var(--accent);color:var(--accent);}
+#tl-zoom-val{font-family:var(--mono);font-size:10px;color:var(--muted);min-width:26px;text-align:center;}
+#tl-upload{display:none;}
+.upload-btn{font-family:var(--mono);font-size:9px;padding:2px 8px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface);color:var(--muted);cursor:pointer;transition:all .1s;}
+.upload-btn:hover{border-color:var(--accent);color:var(--accent);}
+#tl-canvas-wrap{overflow-y:auto;overflow-x:hidden;max-height:200px;position:relative;background:var(--bg);}
+#tl-canvas{display:block;width:100%;}
+#tl-empty{padding:18px;text-align:center;font-family:var(--mono);font-size:10px;color:var(--muted);}
+#tl-add-btn{padding:5px 12px;margin:5px 12px;background:var(--surface);border:1px dashed var(--border-strong);border-radius:var(--r);color:var(--muted);font-family:var(--mono);font-size:10px;cursor:pointer;text-align:center;transition:all .15s;}
+#tl-add-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+/* Charts */
+#charts-area{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0;}
+#macro-section{flex:0 0 52%;padding:8px 12px 0;border-bottom:1px solid var(--border);display:flex;flex-direction:column;}
+#macro-section h3{font-family:var(--mono);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:5px;flex-shrink:0;}
+#macro-canvas-wrap{position:relative;flex:1;min-height:0;}
+#macro-canvas{position:absolute;top:0;left:0;width:100%;height:100%;}
+#micro-grid{flex:0 0 48%;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1px;background:var(--border);min-height:0;}
+.mp{background:var(--surface);display:flex;flex-direction:column;min-height:0;}
+.mph{padding:5px 10px;border-bottom:1px solid var(--border);background:var(--surface-alt);display:flex;align-items:center;justify-content:space-between;gap:6px;flex-shrink:0;}
+.mpn{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.06em;}
+.mpp{font-family:var(--mono);font-size:8px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:1px 7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px;}
+.mcw{flex:1;padding:3px 5px;position:relative;min-height:0;}
+.mcw canvas{position:absolute;top:3px;left:5px;right:5px;bottom:3px;width:calc(100% - 10px);height:calc(100% - 6px);}
+.mal{font-family:var(--mono);font-size:8px;color:var(--muted);padding:2px 8px 4px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0;}
+.mp-empty{display:none;flex:1;align-items:center;justify-content:center;font-family:var(--mono);font-size:10px;color:var(--muted);text-align:center;padding:12px;}
+
+/* Right panel */
+.hw-row{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:9px;color:var(--text2);}
+
+/* Edit panel */
+#ep{position:fixed;top:80px;right:240px;width:264px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:0 4px 24px rgba(0,0,0,.12);z-index:200;display:none;}
+#ep.open{display:block;}
+.eph{padding:10px 12px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:11px;font-weight:700;display:flex;justify-content:space-between;align-items:center;background:var(--surface-alt);}
+.epb{padding:11px 12px;display:flex;flex-direction:column;gap:9px;}
+.epa{display:flex;gap:6px;padding:8px 12px;border-top:1px solid var(--border);}
+.btn{padding:5px 12px;border-radius:var(--r);font-family:var(--mono);font-size:11px;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text2);transition:all .12s;}
+.btn:hover{border-color:var(--accent);color:var(--accent);}
+.btn.danger:hover{border-color:var(--red);color:var(--red);}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+.btn.primary:hover{opacity:.88;}
+.rph{background:var(--accent-dim);border:1px solid var(--accent);border-radius:var(--r);padding:8px 10px;display:flex;flex-direction:column;gap:4px;}
+.rph label{font-family:var(--mono);font-size:8px;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);font-weight:700;}
+.rph input{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-family:var(--mono);font-size:11px;padding:5px 8px;outline:none;width:100%;}
+.hint{font-family:var(--mono);font-size:8px;color:var(--muted);margin-top:2px;line-height:1.4;}
+
+
+.val-help{font-family:var(--mono);font-size:8px;color:var(--muted);line-height:1.4;}
+#real-upload{display:none;}
+.val-upload{display:block;text-align:center;font-family:var(--mono);font-size:10px;padding:6px 8px;border:1px dashed var(--border-strong);border-radius:var(--r);background:var(--surface-alt);color:var(--text2);cursor:pointer;}
+.val-upload:hover{border-color:var(--accent);color:var(--accent);}
+#val-meta{font-family:var(--mono);font-size:8px;color:var(--muted);line-height:1.45;white-space:pre-wrap;}
+
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:2px;}
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <h1>IT POWER SIM</h1>
+  <span id="ftag">P = Σk Nk·Pk_max [ηk(t)·Σm(um·αm(t)) + (1−ηk)·ρk]</span>
+  <div class="spacer"></div>
+  <span id="spill">connecting…</span>
+</div>
+
+<div id="sbar">
+  <div class="sv"><div class="sl">Peak Total</div><div class="sn" id="s-peak">— kW</div></div>
+  <div class="sv"><div class="sl">Avg Total</div><div class="sn" id="s-avg">— kW</div></div>
+  <div class="sv"><div class="sl">Peak Fleet</div><div class="sn" id="s-fleet">— kW</div></div>
+  <div class="sv"><div class="sl">Tasks</div><div class="sn" id="s-tasks">0</div></div>
+</div>
+
+<div id="main">
+  <div id="left">
+    <div class="psec">
+      <div class="ph">Simulation</div>
+      <div class="pb">
+        <div class="f"><label>Duration (min)</label><input id="g-dur" type="number" value="120" min="1" oninput="scheduleRun()"></div>
+        <div class="f"><label>Network (kW)</label><input id="g-net" type="number" value="0" min="0" step="0.1" oninput="scheduleRun()"></div>
+        <div class="f"><label>Storage (kW)</label><input id="g-stor" type="number" value="0" min="0" step="0.1" oninput="scheduleRun()"></div>
+        <div class="f"><label>Misc IT (kW)</label><input id="g-misc" type="number" value="0" min="0" step="0.1" oninput="scheduleRun()"></div>
+      </div>
+    </div>
+    <div class="psec">
+      <div class="ph">Real Dataset Validation</div>
+      <div class="pb">
+        <div class="f"><label>Year Month</label><input id="val-month" type="text" value="22-03"></div>
+        <div class="f"><label>Measured Metric</label>
+          <select id="val-metric">
+            <option value="auto">Auto: Tot_ict, pit, pt</option>
+            <option value="Tot_ict">Tot_ict</option>
+            <option value="pit">pit</option>
+            <option value="pt">pt</option>
+          </select>
+        </div>
+        <div class="f"><label>Replay Hardware</label><select id="val-hw"></select></div>
+        <label class="val-upload">Upload M100 Folder
+          <input id="real-upload" type="file" webkitdirectory directory multiple onchange="uploadRealDataset(event)">
+        </label>
+        <div class="val-help">Upload the folder that contains year_month=22-03, plugin=logics_pub, and plugin=job_table.</div>
+        <div id="val-meta">No measured dataset loaded.</div>
+      </div>
+    </div>
+    <div class="psec">
+      <div class="ph">Inventory</div>
+      <div class="pb" id="inv-fields">Loading…</div>
+    </div>
+  </div>
+
+  <div id="center">
+    <!-- Timeline -->
+    <div id="tl-section">
+      <div id="tl-header">
+        <span>Task Schedule</span>
+        <div class="tl-htools">
+          <label class="upload-btn" title="Upload CSV">↑ CSV<input id="tl-upload" type="file" accept=".csv" onchange="uploadCSV(event)"></label>
+          <button class="zb" onclick="zoom(-1)">−</button>
+          <span id="tl-zoom-val">1×</span>
+          <button class="zb" onclick="zoom(+1)">+</button>
+        </div>
+      </div>
+      <div id="tl-canvas-wrap">
+        <canvas id="tl-canvas"></canvas>
+        <div id="tl-empty">No tasks — add one below or upload a CSV</div>
+      </div>
+      <div id="tl-add-btn" onclick="addTask()">+ Add task</div>
+    </div>
+
+    <!-- Charts -->
+    <div id="charts-area">
+      <div id="macro-section">
+        <h3>Fleet Power and Real M100 Validation</h3>
+        <div id="macro-canvas-wrap">
+          <canvas id="macro-canvas"></canvas>
+        </div>
+      </div>
+      <div id="micro-grid">
+        <div class="mp" id="mp-training">
+          <div class="mph"><span class="mpn" style="color:#b91c1c">TRAINING</span><span class="mpp" id="pill-training">—</span></div>
+          <div class="mcw"><canvas id="mc-training"></canvas></div>
+          <div class="mp-empty" id="empty-training">No training tasks</div>
+          <div class="mal" id="lbl-training">—</div>
+        </div>
+        <div class="mp" id="mp-fine_tuning">
+          <div class="mph"><span class="mpn" style="color:#b45309">FINE-TUNING</span><span class="mpp" id="pill-fine_tuning">—</span></div>
+          <div class="mcw"><canvas id="mc-fine_tuning"></canvas></div>
+          <div class="mp-empty" id="empty-fine_tuning">No fine-tuning tasks</div>
+          <div class="mal" id="lbl-fine_tuning">—</div>
+        </div>
+        <div class="mp" id="mp-inference">
+          <div class="mph"><span class="mpn" style="color:#1d4ed8">INFERENCE</span><span class="mpp" id="pill-inference">—</span></div>
+          <div class="mcw"><canvas id="mc-inference"></canvas></div>
+          <div class="mp-empty" id="empty-inference">No inference tasks</div>
+          <div class="mal" id="lbl-inference">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="right">
+    <div class="psec">
+      <div class="ph">Hardware Library</div>
+      <div class="pb" id="hw-panel" style="gap:2px">Loading…</div>
+    </div>
+    <div class="psec">
+      <div class="ph">Stage Physics</div>
+      <div class="pb" id="phy-panel" style="gap:2px">Loading…</div>
+    </div>
+  </div>
+</div>
+
+<!-- Edit panel -->
+<div id="ep">
+  <div class="eph">
+    <span id="ep-title">Edit Task</span>
+    <button class="btn" onclick="closeEdit()">✕</button>
+  </div>
+  <div class="epb">
+    <div class="f"><label>Name</label><input id="ep-name" type="text" oninput="onEC()"></div>
+    <div class="fr">
+      <div class="f"><label>Hardware</label><select id="ep-hw" oninput="onEC()"></select></div>
+      <div class="f"><label>Stage</label>
+        <select id="ep-stage" oninput="onSC()">
+          <option value="training">Training</option>
+          <option value="fine_tuning">Fine-Tuning</option>
+          <option value="inference">Inference</option>
+        </select>
+      </div>
+    </div>
+    <div class="f"><label>Devices</label><input id="ep-dev" type="number" min="1" oninput="onEC()"></div>
+    <div class="fr">
+      <div class="f"><label>Start (min)</label><input id="ep-s" type="number" min="0" oninput="onEC()"></div>
+      <div class="f"><label>End (min)</label><input id="ep-e" type="number" min="1" oninput="onEC()"></div>
+    </div>
+    <div id="ep-rph-wrap" style="display:none">
+      <div class="rph">
+        <label>Requests per Hour (λ)</label>
+        <input id="ep-rph" type="number" min="1" oninput="onEC()">
+        <div class="hint" id="ep-rph-hint"></div>
+      </div>
+    </div>
+  </div>
+  <div class="epa">
+    <button class="btn primary" onclick="closeEdit()">Done</button>
+    <div class="spacer"></div>
+    <button class="btn danger" onclick="removeTask()">Remove</button>
+  </div>
+</div>
+
+<script>
+let CFG=null,tasks=[],tc=0,editId=null,runTimer=null;
+let zoomLevel=0,canvasHits=[];
+const ZOOM_STEPS=[1,1.5,2,3,5,8,12,20];
+// Original light-theme gantt colors
+const STAGE_COL={
+  training:   {fill:'#fee2e2',stroke:'#f87171',text:'#991b1b'},
+  fine_tuning:{fill:'#fef3c7',stroke:'#fbbf24',text:'#92400e'},
+  inference:  {fill:'#dbeafe',stroke:'#60a5fa',text:'#1e3a8a'},
+};
+// Chart line colors (original)
+const MICRO_COL={
+  training:   {line:'#b91c1c',fill:'rgba(185,28,28,0.08)'},
+  fine_tuning:{line:'#b45309',fill:'rgba(180,83,9,0.08)'},
+  inference:  {line:'#1d4ed8',fill:'rgba(29,78,216,0.08)'},
+};
+const MF=sz=>({family:"'IBM Plex Mono',monospace",size:sz});
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+async function init(){
+  try{
+    const r=await fetch('/api/config');CFG=await r.json();
+    buildInv();buildHwPanel();buildPhyPanel();buildHwSelect();seedTasks();scheduleRun();
+  }catch(e){setStatus('error','Cannot reach server — run: python server.py');}
+}
+
+function buildInv(){
+  document.getElementById('inv-fields').innerHTML=Object.entries(CFG.hardware)
+    .map(([k,h])=>`<div class="f"><label>${h.label}</label>
+      <input id="inv-${k}" type="number" value="${CFG.defaults.inventory[k]??0}" min="0" oninput="scheduleRun()"></div>`).join('');
+}
+function buildHwSelect(){
+  const opts=Object.entries(CFG.hardware)
+    .map(([k,h])=>`<option value="${k}">${h.label}</option>`).join('');
+  document.getElementById('ep-hw').innerHTML=opts;
+  const vh=document.getElementById('val-hw'); if(vh){vh.innerHTML=opts; vh.value=CFG.replay?.default_hardware_type || 'V100';}
+}
+function buildHwPanel(){
+  document.getElementById('hw-panel').innerHTML=Object.entries(CFG.hardware)
+    .map(([k,h])=>`<div class="hw-row"><span style="color:var(--text);font-weight:600">${k}</span><span>${h.p_max}W · ρ=${h.rho}</span></div>`).join('');
+}
+function buildPhyPanel(){
+  const ph=CFG.stage_physics;
+  document.getElementById('phy-panel').innerHTML=`
+    <div style="color:#b91c1c;font-weight:700;font-family:var(--mono);font-size:9px;padding:3px 0">Training</div>
+    <div class="hw-row"><span>Plateau u</span><span>${ph.training.u_plateau} ± ${ph.training.sigma_plateau}</span></div>
+    <div class="hw-row"><span>Checkpoint</span><span>every ${ph.training.checkpoint_ms/60000}min · ${ph.training.checkpoint_dur_ms/1000}s</span></div>
+    <div style="color:#b45309;font-weight:700;font-family:var(--mono);font-size:9px;padding:5px 0 2px">Fine-Tuning</div>
+    <div class="hw-row"><span>Plateau u</span><span>${ph.fine_tuning.u_plateau} ± ${ph.fine_tuning.sigma_plateau}</span></div>
+    <div class="hw-row"><span>Eval interval</span><span>every ${ph.fine_tuning.eval_period_ms/60000}min · ${ph.fine_tuning.eval_dur_ms/1000}s</span></div>
+    <div style="color:#1d4ed8;font-weight:700;font-family:var(--mono);font-size:9px;padding:5px 0 2px">Inference</div>
+    <div class="hw-row"><span>u_burst / u_idle</span><span>${ph.inference.u_burst} / ${ph.inference.u_idle}</span></div>
+    <div class="hw-row"><span>Service τ</span><span>${ph.inference.service_s}s · default λ=${ph.inference.default_lambda}</span></div>`;
+}
+
+// ── Tasks ──────────────────────────────────────────────────────────────────
+function getDurMs(){return(parseFloat(document.getElementById('g-dur').value)||120)*60000;}
+
+function seedTasks(){
+  const D=getDurMs();
+  tasks=[
+    {id:'s1',name:'Training Run',hardware_type:'H100',stage:'training',num_devices:64,start_ms:0,end_ms:Math.round(D*.7),requests_per_hour:100},
+    {id:'s2',name:'Inference Server',hardware_type:'H100',stage:'inference',num_devices:32,start_ms:Math.round(D*.15),end_ms:D,requests_per_hour:100},
+  ];tc=2;drawGantt();updateCount();
+}
+
+function addTask(){
+  const D=getDurMs();
+  const t={id:'t'+(++tc),name:'Task '+tc,hardware_type:'H100',stage:'training',num_devices:64,start_ms:0,end_ms:D,requests_per_hour:CFG?.stage_physics?.inference?.default_lambda??100};
+  tasks.push(t);drawGantt();updateCount();openEdit(t.id);scheduleRun();
+}
+function removeTask(){
+  if(!editId)return;tasks=tasks.filter(t=>t.id!==editId);editId=null;closeEdit();drawGantt();updateCount();scheduleRun();
+}
+function updateCount(){document.getElementById('s-tasks').textContent=tasks.length;}
+
+// ── CSV Upload ────────────────────────────────────────────────────────────────
+function uploadCSV(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const lines=ev.target.result.trim().split('\n');
+    const hdr=lines[0].toLowerCase().split(',').map(s=>s.trim());
+    const col=k=>hdr.indexOf(k);
+    const ci={name:col('name'),hw:Math.max(col('hardware_type'),col('hardwaretype')),
+              stage:col('stage'),dev:Math.max(col('num_devices'),col('numdevices'),col('devices')),
+              s:Math.max(col('start_min'),col('start_ms')),
+              e:Math.max(col('end_min'),col('end_ms')),
+              rph:Math.max(col('requests_per_hour'),col('requestsperhour'),col('lambda'))};
+    const isMs=hdr.includes('start_ms');
+    const newTasks=[];
+    lines.slice(1).forEach((line,i)=>{
+      const c=line.split(',').map(s=>s.trim());
+      if(c.length<4)return;
+      const sVal=parseFloat(c[ci.s]??0)||0;
+      const eVal=parseFloat(c[ci.e]??60)||60;
+      const startMs=isMs?sVal:sVal*60000;
+      const endMs  =isMs?eVal:eVal*60000;
+      newTasks.push({
+        id:'csv-'+Date.now()+'-'+i,
+        name:c[ci.name]||'Task '+(i+1),
+        hardware_type:c[ci.hw]||'H100',
+        stage:c[ci.stage]||'training',
+        num_devices:parseInt(c[ci.dev])||64,
+        start_ms:startMs,end_ms:endMs,
+        requests_per_hour:ci.rph>=0&&c[ci.rph]?parseFloat(c[ci.rph]):100,
+      });
+    });
+    tc+=newTasks.length;tasks=[...tasks,...newTasks];
+    drawGantt();updateCount();scheduleRun();
+    setStatus('ok',`Loaded ${newTasks.length} tasks from CSV`);
+  };
+  reader.readAsText(file);
+  e.target.value='';
+}
+
+// ── Gantt ─────────────────────────────────────────────────────────────────────
+const LANE_H=34,AXIS_H=24,MIN_PX=2;
+
+function packLanes(){
+  const sorted=[...tasks].sort((a,b)=>a.start_ms-b.start_ms);
+  const ends=[],map=new Map();
+  for(const t of sorted){
+    let l=ends.findIndex(e=>e<=t.start_ms);
+    if(l===-1){l=ends.length;ends.push(0);}
+    ends[l]=t.end_ms;map.set(t.id,l);
+  }
+  return{map,numLanes:Math.max(1,ends.length)};
+}
+function fmtMin(ms){const m=Math.round(ms/60000);return m<60?m+'min':(m/60).toFixed(1)+'h';}
+function rrect(ctx,x,y,w,h,r){
+  ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.arcTo(x+w,y,x+w,y+r,r);
+  ctx.lineTo(x+w,y+h-r);ctx.arcTo(x+w,y+h,x+w-r,y+h,r);
+  ctx.lineTo(x+r,y+h);ctx.arcTo(x,y+h,x,y+h-r,r);
+  ctx.lineTo(x,y+r);ctx.arcTo(x,y,x+r,y,r);ctx.closePath();
+}
+
+function drawGantt(){
+  const canvas=document.getElementById('tl-canvas');
+  const wrap=document.getElementById('tl-canvas-wrap');
+  const empty=document.getElementById('tl-empty');
+  if(!canvas)return;
+  if(tasks.length===0){empty.style.display='block';canvas.style.display='none';return;}
+  empty.style.display='none';canvas.style.display='block';
+  const W=wrap.clientWidth||800;
+  const{map,numLanes}=packLanes();
+  const H=AXIS_H+numLanes*LANE_H+4;
+  canvas.width=W;canvas.height=H;
+  wrap.style.maxHeight=Math.min(H+2,200)+'px';
+  const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+  const durMs=getDurMs();
+  const scale=ZOOM_STEPS[Math.max(0,Math.min(zoomLevel,ZOOM_STEPS.length-1))];
+  const visMs=durMs/scale;
+  let panMs=0;
+  if(scale>1&&tasks.length){
+    const mid=tasks.reduce((s,t)=>s+(t.start_ms+t.end_ms)/2,0)/tasks.length;
+    panMs=Math.max(0,Math.min(mid-visMs/2,durMs-visMs));
+  }
+  const toX=ms=>((ms-panMs)/visMs)*W;
+  document.getElementById('tl-zoom-val').textContent=scale+'×';
+  // Axis bg
+  ctx.fillStyle='#f4f3ef';ctx.fillRect(0,0,W,AXIS_H);
+  ctx.strokeStyle='#dddad3';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(0,AXIS_H);ctx.lineTo(W,AXIS_H);ctx.stroke();
+  // Ticks
+  const numT=8;ctx.font=`9px 'IBM Plex Mono',monospace`;ctx.textAlign='center';
+  for(let i=0;i<=numT;i++){
+    const ms=panMs+(i/numT)*visMs,x=(i/numT)*W;
+    ctx.strokeStyle='#e2ded6';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(x,AXIS_H);ctx.lineTo(x,H);ctx.stroke();
+    ctx.fillStyle='#908d85';ctx.fillText(fmtMin(ms),x,AXIS_H-6);
+  }
+  // Lane separators
+  for(let l=0;l<=numLanes;l++){
+    const y=AXIS_H+l*LANE_H;
+    ctx.strokeStyle='#ece9e3';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();
+  }
+  // Lane alternating bg
+  for(let l=0;l<numLanes;l++){
+    if(l%2===1){ctx.fillStyle='rgba(0,0,0,.02)';ctx.fillRect(0,AXIS_H+l*LANE_H,W,LANE_H);}
+  }
+  // Task blocks
+  canvasHits=[];
+  ctx.font=`bold 10px 'IBM Plex Mono',monospace`;ctx.textAlign='left';
+  for(const t of tasks){
+    const lane=map.get(t.id)??0,col=STAGE_COL[t.stage]||STAGE_COL.training;
+    const x1=toX(t.start_ms),x2=toX(t.end_ms),bw=x2-x1;
+    if(bw<MIN_PX)continue;
+    const y1=AXIS_H+lane*LANE_H+3,y2=AXIS_H+(lane+1)*LANE_H-3,bh=y2-y1;
+    const sel=(editId===t.id);
+    ctx.fillStyle=col.fill;rrect(ctx,x1,y1,bw,bh,3);ctx.fill();
+    ctx.strokeStyle=sel?col.stroke:col.stroke+'cc';ctx.lineWidth=sel?2:1;
+    rrect(ctx,x1,y1,bw,bh,3);ctx.stroke();
+    // Left edge bar
+    ctx.fillStyle=col.stroke;ctx.fillRect(x1,y1,3,bh);
+    if(bw>24){
+      ctx.fillStyle=col.text;
+      ctx.save();ctx.beginPath();ctx.rect(x1+6,y1,bw-8,bh);ctx.clip();
+      ctx.fillText(t.name,x1+7,y1+bh*.68);ctx.restore();
+    }
+    canvasHits.push({t,x1,x2,y1:y1-3,y2:y2+3});
+  }
+  if(!canvas._bound){
+    canvas._bound=true;
+    canvas.addEventListener('click',e=>{
+      const r=canvas.getBoundingClientRect();
+      const mx=e.clientX-r.left,my=e.clientY-r.top+wrap.scrollTop;
+      const hit=canvasHits.find(h=>mx>=h.x1&&mx<=h.x2&&my>=h.y1&&my<=h.y2);
+      if(hit)openEdit(hit.t.id);else closeEdit();
+    });
+    canvas.addEventListener('dblclick',e=>{
+      const r=canvas.getBoundingClientRect();
+      const mx=e.clientX-r.left,my=e.clientY-r.top+wrap.scrollTop;
+      if(!canvasHits.find(h=>mx>=h.x1&&mx<=h.x2&&my>=h.y1&&my<=h.y2))addTask();
+    });
+  }
+}
+function zoom(dir){zoomLevel=Math.max(0,Math.min(zoomLevel+dir,ZOOM_STEPS.length-1));drawGantt();}
+new ResizeObserver(()=>drawGantt()).observe(document.getElementById('tl-canvas-wrap'));
+
+// ── Edit panel ────────────────────────────────────────────────────────────────
+function openEdit(id){
+  editId=id;const t=tasks.find(x=>x.id===id);if(!t)return;
+  document.getElementById('ep-title').textContent=t.name;
+  document.getElementById('ep-name').value=t.name;
+  document.getElementById('ep-hw').value=t.hardware_type;
+  document.getElementById('ep-stage').value=t.stage;
+  document.getElementById('ep-dev').value=t.num_devices;
+  document.getElementById('ep-s').value=+(t.start_ms/60000).toFixed(2);
+  document.getElementById('ep-e').value=+(t.end_ms/60000).toFixed(2);
+  document.getElementById('ep-rph').value=t.requests_per_hour??100;
+  updateRph(t.stage);document.getElementById('ep').classList.add('open');drawGantt();
+}
+function closeEdit(){document.getElementById('ep').classList.remove('open');editId=null;drawGantt();}
+function updateRph(stage){
+  document.getElementById('ep-rph-wrap').style.display=stage==='inference'?'block':'none';
+  if(stage==='inference'&&CFG){
+    const lam=parseFloat(document.getElementById('ep-rph').value)||100;
+    const tau=CFG.stage_physics.inference.service_s;
+    document.getElementById('ep-rph-hint').textContent=
+      `Occupancy ${(Math.min(1,lam*tau/3600)*100).toFixed(1)}% · sat. λ=${(3600/tau).toFixed(0)} req/hr`;
+  }
+}
+function onSC(){updateRph(document.getElementById('ep-stage').value);onEC();}
+function onEC(){
+  const t=tasks.find(x=>x.id===editId);if(!t)return;
+  t.name=document.getElementById('ep-name').value;
+  t.hardware_type=document.getElementById('ep-hw').value;
+  t.stage=document.getElementById('ep-stage').value;
+  t.num_devices=parseFloat(document.getElementById('ep-dev').value)||1;
+  t.start_ms=parseFloat(document.getElementById('ep-s').value||0)*60000;
+  t.end_ms=parseFloat(document.getElementById('ep-e').value||1)*60000;
+  t.requests_per_hour=parseFloat(document.getElementById('ep-rph').value)||100;
+  if(t.end_ms<=t.start_ms)t.end_ms=t.start_ms+60000;
+  document.getElementById('ep-title').textContent=t.name;
+  updateRph(t.stage);drawGantt();scheduleRun();
+}
+
+// ── API ───────────────────────────────────────────────────────────────────────
+function getInv(){const i={};if(!CFG)return i;for(const k of Object.keys(CFG.hardware))i[k]=parseInt(document.getElementById('inv-'+k)?.value)||0;return i;}
+function getInfra(){return{network_kw:parseFloat(document.getElementById('g-net').value)||0,storage_kw:parseFloat(document.getElementById('g-stor').value)||0,misc_kw:parseFloat(document.getElementById('g-misc').value)||0};}
+function setStatus(t,m){const el=document.getElementById('spill');el.className=t;el.textContent=m;}
+function scheduleRun(){clearTimeout(runTimer);runTimer=setTimeout(runSim,350);}
+
+async function runSim(){
+  if(!CFG)return;setStatus('loading','computing…');
+  try{
+    const r=await fetch('/api/simulate',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({tasks,inventory:getInv(),infra:getInfra(),sim:{start_ms:0,duration_ms:getDurMs()}})});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const d=await r.json();
+    updateMacro(d.macro);updateMicro(d.micro);
+    document.getElementById('s-peak').textContent=d.stats.peak_kw+' kW';
+    document.getElementById('s-avg').textContent=d.stats.avg_kw+' kW';
+    document.getElementById('s-fleet').textContent=d.stats.peak_fleet_kw+' kW';
+    setStatus('ok',`${d.macro.length} pts · 1s res`);
+  }catch(e){setStatus('error',e.message);}
+}
+
+
+// ── Real dataset validation upload ───────────────────────────────────────────
+async function uploadRealDataset(e){
+  const files=[...e.target.files];
+  if(!files.length)return;
+  setStatus('loading',`uploading ${files.length} files…`);
+  const fd=new FormData();
+  for(const f of files){
+    fd.append('files',f,f.webkitRelativePath || f.name);
+  }
+  fd.append('year_month',document.getElementById('val-month').value || '22-03');
+  fd.append('metric',document.getElementById('val-metric').value || 'auto');
+  fd.append('hardware_type',document.getElementById('val-hw').value || 'V100');
+  fd.append('inventory',JSON.stringify(getInv()));
+  fd.append('infra',JSON.stringify(getInfra()));
+  try{
+    const r=await fetch('/api/validate-upload',{method:'POST',body:fd});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.error || ('HTTP '+r.status));
+    updateValidationChart(d);
+    const m=d.meta;
+    document.getElementById('val-meta').textContent=
+      `Loaded ${m.year_month} · ${m.metric} (${m.unit_note})\n`+
+      `Points: ${m.points} · Jobs: ${m.usable_jobs} · Tasks: ${m.task_count}\n`+
+      `Stages: ${JSON.stringify(m.stage_counts)}\n`+
+      `RMSE: ${m.rmse_kw} kW · MAE: ${m.mae_kw} kW`;
+    document.getElementById('s-peak').textContent=Math.max(...d.measured_kw).toFixed(2)+' kW';
+    document.getElementById('s-avg').textContent=(d.measured_kw.reduce((a,b)=>a+b,0)/d.measured_kw.length).toFixed(2)+' kW';
+    document.getElementById('s-fleet').textContent=Math.max(...d.model_kw).toFixed(2)+' kW';
+    document.getElementById('s-tasks').textContent=m.task_count;
+    setStatus('ok',`validation loaded · ${m.points} pts`);
+  }catch(err){
+    setStatus('error',err.message);
+    document.getElementById('val-meta').textContent='Validation error: '+err.message;
+  }finally{
+    e.target.value='';
+  }
+}
+
+function updateValidationChart(d){
+  macroC.data.labels=d.labels;
+  macroC.data.datasets[0].data=[];
+  macroC.data.datasets[1].data=[];
+  macroC.data.datasets[2].data=[];
+  macroC.data.datasets[3].data=d.measured_kw;
+  macroC.data.datasets[4].data=d.model_kw;
+  macroC.update('none');
+}
+
+// ── Charts ────────────────────────────────────────────────────────────────────
+let macroC=null;
+function initMacro(){
+  macroC=new Chart(document.getElementById('macro-canvas').getContext('2d'),{
+    type:'line',
+    data:{labels:[],datasets:[
+      {label:'Fleet Power (kW)',data:[],borderColor:'#2563eb',borderWidth:1.5,pointRadius:0,tension:0.1,fill:false},
+      {label:'Total Power (kW)',data:[],borderColor:'#15803d',borderWidth:2.5,pointRadius:0,tension:0.1,fill:false},
+      {label:'Infra (kW)',data:[],borderColor:'#94a3b8',borderWidth:1,pointRadius:0,tension:0.1,fill:false,borderDash:[3,3]},
+      {label:'Measured Total IT Power (kW)',data:[],borderColor:'#b91c1c',borderWidth:2.2,pointRadius:0,tension:0.05,fill:false},
+      {label:'Model IT Power from Jobs (kW)',data:[],borderColor:'#111827',borderWidth:1.8,pointRadius:0,tension:0.05,fill:false,borderDash:[5,3]},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,
+      plugins:{
+        legend:{display:true,labels:{color:'#908d85',font:MF(9),boxWidth:10,padding:8}},
+        tooltip:{mode:'index',intersect:false,titleFont:MF(9),bodyFont:MF(10),
+          callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y.toFixed(2)} kW`}},
+      },
+      scales:{
+        x:{title:{display:true,text:'Elapsed time',font:MF(9),color:'#908d85'},
+           grid:{color:'#ece9e3'},ticks:{font:MF(9),color:'#908d85',maxTicksLimit:14,maxRotation:0}},
+        y:{title:{display:true,text:'Power (kW)',font:MF(9),color:'#908d85'},
+           grid:{color:'#ece9e3'},ticks:{font:MF(9),color:'#908d85'},min:0},
+      },
+    },
+  });
+}
+function updateMacro(rows){
+  macroC.data.labels=rows.map(r=>r.label);
+  macroC.data.datasets[0].data=rows.map(r=>r.tasks_kw);
+  macroC.data.datasets[1].data=rows.map(r=>r.total_kw);
+  macroC.data.datasets[2].data=rows.map(r=>r.base_kw);
+  macroC.data.datasets[3].data=[];
+  macroC.data.datasets[4].data=[];
+  macroC.update('none');
+}
+
+let microC={};
+function showMicroStage(stage,hasTask){
+  const panel=document.getElementById('mp-'+stage);
+  const canvas=document.getElementById('mc-'+stage).parentElement;
+  const emptyEl=document.getElementById('empty-'+stage);
+  const lbl=document.getElementById('lbl-'+stage);
+  if(hasTask){
+    canvas.style.display='block';
+    if(emptyEl)emptyEl.style.display='none';
+    lbl.style.display='block';
+    panel.style.display='flex';
+  }else{
+    canvas.style.display='none';
+    if(emptyEl){emptyEl.style.display='flex';emptyEl.style.flex='1';}
+    lbl.style.display='none';
+    panel.style.display='flex';
+  }
+}
+
+function initMicro(stage){
+  const col=MICRO_COL[stage],isInf=stage==='inference';
+  return new Chart(document.getElementById('mc-'+stage).getContext('2d'),{
+    type:'line',
+    data:{labels:[],datasets:[{label:'Stage Power (kW)',data:[],
+      borderColor:col.line,backgroundColor:col.fill,borderWidth:1.3,
+      pointRadius:0,tension:0,fill:true,stepped:isInf?'before':false}]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,
+      plugins:{legend:{display:false},
+        tooltip:{titleFont:MF(8),bodyFont:MF(9),callbacks:{label:c=>`${c.parsed.y.toFixed(3)} kW`}}},
+      scales:{
+        x:{title:{display:true,text:'Elapsed time',font:MF(8),color:'#908d85'},
+           grid:{color:'#f4f3ef'},ticks:{font:MF(8),color:'#908d85',maxTicksLimit:7,maxRotation:0}},
+        y:{title:{display:true,text:'Power (kW)',font:MF(8),color:'#908d85'},
+           grid:{color:'#f4f3ef'},ticks:{font:MF(8),color:'#908d85'},min:0},
+      },
+    },
+  });
+}
+
+function updateMicro(micro){
+  for(const s of['training','fine_tuning','inference']){
+    const hasTask=tasks.some(t=>t.stage===s);
+    showMicroStage(s,hasTask);
+    if(!hasTask){document.getElementById('pill-'+s).textContent='no tasks';continue;}
+    if(!microC[s])microC[s]=initMicro(s);
+    const tr=micro[s];
+    microC[s].data.labels=tr.labels;
+    microC[s].data.datasets[0].data=tr.data;
+    microC[s].update('none');
+    document.getElementById('pill-'+s).textContent=tr.timescale;
+    document.getElementById('lbl-'+s).textContent=tr.axis_label;
+  }
+  // Count how many panels are visible — adjust grid columns
+  const active=['training','fine_tuning','inference'].filter(s=>tasks.some(t=>t.stage===s)).length;
+  document.getElementById('micro-grid').style.gridTemplateColumns=`repeat(${Math.max(1,active)},1fr)`;
+}
+
+initMacro();init();
+</script>
+</body>
+</html>

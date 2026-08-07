@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Validation v3</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#f4f3ef; --surface:#fff; --surface-alt:#f9f8f5;
+  --border:#dddad3; --border-strong:#c5c1b8;
+  --text:#1a1916; --text2:#5c5a54; --muted:#908d85;
+  --accent:#1d4ed8; --accent-dim:#dbeafe;
+  --green:#15803d; --red:#b91c1c; --amber:#b45309; --teal:#0f766e;
+  --mono:'IBM Plex Mono',monospace; --sans:'IBM Plex Sans',system-ui,sans-serif; --r:5px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13px;min-height:100vh;display:flex;flex-direction:column}
+#topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 14px;height:42px;display:flex;align-items:center;gap:12px;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+#topbar h1{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--teal);letter-spacing:.04em}
+#ftag{font-family:var(--mono);font-size:9px;color:var(--muted);background:var(--surface-alt);border:1px solid var(--border);border-radius:999px;padding:2px 10px}
+.spacer{flex:1}
+#spill{font-family:var(--mono);font-size:9px;padding:3px 10px;border-radius:999px;border:1px solid var(--border);color:var(--muted)}
+#spill.loading{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+#spill.error{border-color:var(--red);color:var(--red);background:#fee2e2}
+#spill.ok{border-color:var(--green);color:var(--green);background:#dcfce7}
+#sbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 14px;height:42px;display:flex;align-items:center;gap:22px;flex-wrap:wrap;flex-shrink:0}
+.sv{display:flex;flex-direction:column;gap:1px}
+.sl{font-family:var(--mono);font-size:8px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.sn{font-family:var(--mono);font-size:13px;font-weight:600}
+.sn.good{color:var(--green)}.sn.bad{color:var(--red)}.sn.warn{color:var(--amber)}
+#main{display:flex;flex:1;min-height:0}
+#left{width:260px;flex-shrink:0;border-right:1px solid var(--border);background:var(--surface);overflow-y:auto}
+#center{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.psec{border-bottom:1px solid var(--border)}
+.ph{padding:7px 12px;font-family:var(--mono);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);background:var(--surface-alt)}
+.pb{padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.f{display:flex;flex-direction:column;gap:3px}
+.f label{font-family:var(--mono);font-size:8px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.f input{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-family:var(--mono);font-size:11px;padding:5px 8px;width:100%;outline:none}
+.f input:focus{border-color:var(--accent)}
+.hint{font-family:var(--mono);font-size:8px;color:var(--muted);line-height:1.45}
+.btn{padding:6px 10px;border-radius:var(--r);font-family:var(--mono);font-size:10px;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text2)}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.meta-row{font-family:var(--mono);font-size:9px;color:var(--text2);padding:2px 0;border-bottom:1px solid var(--border)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.card-h{padding:8px 12px;border-bottom:1px solid var(--border);background:var(--surface-alt);font-family:var(--mono);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text2);display:flex;justify-content:space-between;align-items:center}
+.card-h .pill{font-size:8px;font-weight:600;color:var(--muted);text-transform:none;letter-spacing:0}
+.card-b{padding:10px 12px}
+.cw{position:relative;height:240px}
+.cw.sm{height:160px}
+.cw canvas{width:100%!important;height:100%!important}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:2px}
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <h1>VALIDATION · V3</h1>
+  <span id="ftag">1-day · Tot_ict vs simulated GPU + non-GPU baseline</span>
+  <div class="spacer"></div>
+  <span id="spill">loading…</span>
+</div>
+
+<div id="sbar">
+  <div class="sv"><div class="sl">Power MAPE</div><div class="sn" id="s-mape">—</div></div>
+  <div class="sv"><div class="sl">Bias</div><div class="sn" id="s-bias">—</div></div>
+  <div class="sv"><div class="sl">Energy Err</div><div class="sn" id="s-eerr">—</div></div>
+  <div class="sv"><div class="sl">Peak Meas</div><div class="sn" id="s-pmeas">—</div></div>
+  <div class="sv"><div class="sl">Peak Calc</div><div class="sn" id="s-pcalc">—</div></div>
+  <div class="sv"><div class="sl">Jobs</div><div class="sn" id="s-jobs">—</div></div>
+</div>
+
+<div id="main">
+  <div id="left">
+    <div class="psec">
+      <div class="ph">1-day slice</div>
+      <div class="pb">
+        <div class="meta-row" id="m-window">—</div>
+        <div class="meta-row" id="m-points">—</div>
+        <div class="meta-row" id="m-rho">—</div>
+        <div class="hint">Edit <code>validation_v3/slice_config.json</code> to change the day.</div>
+        <button class="btn" id="btn-reload" type="button">Reload</button>
+      </div>
+    </div>
+    <div class="psec">
+      <div class="ph">Non-GPU IT power</div>
+      <div class="pb">
+        <div class="f">
+          <label>Baseline offset (kW)</label>
+          <input id="baseline" type="number" min="0" step="10" value="255">
+        </div>
+        <div class="hint">Constant added to modeled GPU fleet power. Updates live.</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="center">
+    <div class="card">
+      <div class="card-h">Measured Tot_ict vs Calculated (GPU + baseline)</div>
+      <div class="card-b"><div class="cw"><canvas id="c-overlay"></canvas></div></div>
+    </div>
+    <div class="card">
+      <div class="card-h">Residual — Calculated − Measured (kW)</div>
+      <div class="card-b"><div class="cw sm"><canvas id="c-resid"></canvas></div></div>
+    </div>
+    <div class="card">
+      <div class="card-h"><span>Training — modeled GPU</span><span class="pill" id="pill-training">—</span></div>
+      <div class="card-b"><div class="cw sm"><canvas id="c-training"></canvas></div></div>
+    </div>
+    <div class="card">
+      <div class="card-h"><span>Fine-tuning — modeled GPU</span><span class="pill" id="pill-fine_tuning">—</span></div>
+      <div class="card-b"><div class="cw sm"><canvas id="c-fine_tuning"></canvas></div></div>
+    </div>
+    <div class="card">
+      <div class="card-h"><span>Inference — modeled GPU</span><span class="pill" id="pill-inference">—</span></div>
+      <div class="card-b"><div class="cw sm"><canvas id="c-inference"></canvas></div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const MF=sz=>({family:"'IBM Plex Mono',monospace",size:sz});
+const TARGETS={mape:15, energy:10};
+const STAGE_COL={
+  training:{line:'#991b1b', fill:'rgba(153,27,27,0.08)'},
+  fine_tuning:{line:'#92400e', fill:'rgba(146,64,14,0.08)'},
+  inference:{line:'#1e3a8a', fill:'rgba(30,58,138,0.08)'},
+};
+let payload=null;
+let charts={};
+let liveTimer=null;
+
+function setStatus(cls,msg){
+  const el=document.getElementById('spill');
+  el.className=cls; el.textContent=msg;
+}
+
+function chartOpts(yLabel){
+  return {
+    responsive:true, maintainAspectRatio:false, animation:false,
+    interaction:{mode:'index',intersect:false},
+    plugins:{legend:{labels:{font:MF(9),boxWidth:10,color:'#5c5a54'}}},
+    scales:{
+      x:{ticks:{font:MF(8),color:'#908d85',maxRotation:0,autoSkip:true,maxTicksLimit:8},grid:{color:'#ece9e3'}},
+      y:{title:{display:true,text:yLabel,font:MF(9),color:'#908d85'},grid:{color:'#ece9e3'},ticks:{font:MF(9),color:'#908d85'},min:0},
+    },
+    elements:{line:{tension:0.15},point:{radius:0,hitRadius:6}},
+  };
+}
+
+function initCharts(){
+  charts.overlay=new Chart(document.getElementById('c-overlay'),{
+    type:'line',
+    data:{labels:[],datasets:[
+      {label:'Measured Tot_ict',data:[],borderColor:'#15803d',backgroundColor:'rgba(21,128,61,0.08)',borderWidth:2,fill:true},
+      {label:'Calculated (GPU+base)',data:[],borderColor:'#1d4ed8',borderWidth:2,borderDash:[5,3],fill:false},
+      {label:'GPU only',data:[],borderColor:'#93c5fd',borderWidth:1,borderDash:[2,2],fill:false},
+    ]},
+    options:chartOpts('Power (kW)'),
+  });
+  charts.resid=new Chart(document.getElementById('c-resid'),{
+    type:'line',
+    data:{labels:[],datasets:[
+      {label:'Residual',data:[],borderColor:'#b45309',backgroundColor:'rgba(180,83,9,0.08)',borderWidth:1.5,fill:true},
+    ]},
+    options:(()=>{const o=chartOpts('kW'); delete o.scales.y.min; return o;})(),
+  });
+  for(const s of ['training','fine_tuning','inference']){
+    const col=STAGE_COL[s];
+    charts[s]=new Chart(document.getElementById('c-'+s),{
+      type:'line',
+      data:{labels:[],datasets:[
+        {label:s+' kW',data:[],borderColor:col.line,backgroundColor:col.fill,borderWidth:1.5,fill:true},
+      ]},
+      options:chartOpts('Power (kW)'),
+    });
+  }
+}
+
+function metricClass(val, goodBelow){
+  if(val==null) return '';
+  if(val<=goodBelow) return 'good';
+  if(val<=goodBelow*1.5) return 'warn';
+  return 'bad';
+}
+
+function renderMetrics(m){
+  const mape=document.getElementById('s-mape');
+  const bias=document.getElementById('s-bias');
+  const eerr=document.getElementById('s-eerr');
+  mape.textContent=m.mape_pct!=null?m.mape_pct+'%':'—';
+  mape.className='sn '+metricClass(m.mape_pct, TARGETS.mape);
+  bias.textContent=m.bias_kw!=null?(m.bias_kw>=0?'+':'')+m.bias_kw+' kW':'—';
+  bias.className='sn';
+  eerr.textContent=m.energy_err_pct!=null?m.energy_err_pct+'%':'—';
+  eerr.className='sn '+metricClass(m.energy_err_pct, TARGETS.energy);
+  document.getElementById('s-pmeas').textContent=m.peak_meas+' kW';
+  document.getElementById('s-pcalc').textContent=m.peak_calc+' kW';
+}
+
+function renderCharts(data){
+  const labels=data.labels;
+  charts.overlay.data.labels=labels;
+  charts.overlay.data.datasets[0].data=data.measured;
+  charts.overlay.data.datasets[1].data=data.calculated;
+  charts.overlay.data.datasets[2].data=data.model_gpu;
+  charts.overlay.update('none');
+
+  charts.resid.data.labels=labels;
+  charts.resid.data.datasets[0].data=data.residual;
+  charts.resid.update('none');
+
+  const bs=data.by_stage||{};
+  for(const s of ['training','fine_tuning','inference']){
+    const series=bs[s]||[];
+    charts[s].data.labels=labels;
+    charts[s].data.datasets[0].data=series;
+    charts[s].update('none');
+    const peak=series.length?Math.max(...series,0):0;
+    document.getElementById('pill-'+s).textContent=peak>0?`peak ${peak.toFixed(0)} kW`:'no jobs';
+  }
+}
+
+function renderAll(data){
+  payload=data;
+  const m=data.meta;
+  document.getElementById('m-window').textContent=`${m.window.t0.slice(0,10)} → ${m.window.t1.slice(0,10)}`;
+  document.getElementById('m-points').textContent=`${m.measured_points} pts · ${m.grid_seconds}s grid · ${m.job_count} jobs`;
+  document.getElementById('m-rho').textContent=`V100 · inventory ${m.inventory?.V100??'—'} GPUs`;
+  document.getElementById('s-jobs').textContent=(m.job_count||0).toLocaleString();
+  document.getElementById('baseline').value=m.baseline_kw;
+  renderMetrics(data.metrics);
+  renderCharts(data);
+}
+
+async function loadCompare(){
+  setStatus('loading','loading…');
+  const baseline=document.getElementById('baseline').value||'255';
+  try{
+    const r=await fetch('/api/compare?baseline_kw='+encodeURIComponent(baseline));
+    const data=await r.json();
+    if(!r.ok) throw new Error(data.error||r.statusText);
+    renderAll(data);
+    setStatus('ok',`1-day · MAPE ${data.metrics.mape_pct}%`);
+  }catch(e){
+    setStatus('error', e.message);
+  }
+}
+
+function applyBaselineLive(){
+  if(!payload) return;
+  clearTimeout(liveTimer);
+  liveTimer=setTimeout(async()=>{
+    const baseline=parseFloat(document.getElementById('baseline').value)||0;
+    try{
+      const r=await fetch('/api/compare/recompute',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({baseline_kw:baseline, payload}),
+      });
+      const data=await r.json();
+      if(!r.ok) throw new Error(data.error||r.statusText);
+      renderAll(data);
+      setStatus('ok',`baseline ${baseline} kW · MAPE ${data.metrics.mape_pct}%`);
+    }catch(e){
+      setStatus('error', e.message);
+    }
+  },120);
+}
+
+document.getElementById('btn-reload').addEventListener('click', loadCompare);
+document.getElementById('baseline').addEventListener('input', applyBaselineLive);
+
+initCharts();
+loadCompare();
+</script>
+</body>
+</html>

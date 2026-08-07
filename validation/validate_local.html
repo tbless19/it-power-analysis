@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>M100 Validation — Local Dataset</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#f4f3ef; --surface:#fff; --surface-alt:#f9f8f5;
+  --border:#dddad3; --text:#1a1916; --text2:#5c5a54; --muted:#908d85;
+  --accent:#1d4ed8; --accent-dim:#dbeafe; --teal:#0d9488;
+  --green:#15803d; --red:#b91c1c; --amber:#b45309;
+  --mono:'IBM Plex Mono',monospace; --sans:'IBM Plex Sans',system-ui,sans-serif; --r:5px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13px;min-height:100vh;display:flex;flex-direction:column}
+#topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 16px;height:46px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+#topbar h1{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--teal)}
+.sub{font-family:var(--mono);font-size:9px;color:var(--muted);background:var(--surface-alt);border:1px solid var(--border);border-radius:999px;padding:2px 10px}
+.nav{font-family:var(--mono);font-size:9px;color:var(--accent);text-decoration:none;border:1px solid var(--border);border-radius:999px;padding:2px 10px}
+.nav:hover{background:var(--accent-dim)}
+.spacer{flex:1}
+#status{font-family:var(--mono);font-size:9px;padding:3px 12px;border-radius:999px;border:1px solid var(--border);color:var(--muted)}
+#status.loading{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+#status.error{border-color:var(--red);color:var(--red);background:#fee2e2}
+#status.ok{border-color:var(--green);color:var(--green);background:#dcfce7}
+#sbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 16px;height:42px;display:flex;align-items:center;gap:28px;flex-wrap:wrap}
+.sv{display:flex;flex-direction:column;gap:1px}
+.sl{font-family:var(--mono);font-size:8px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.sn{font-family:var(--mono);font-size:13px;font-weight:600}
+.sn.good{color:var(--green)} .sn.bad{color:var(--red)} .sn.warn{color:var(--amber)}
+#main{display:flex;flex:1;min-height:0}
+#sidebar{width:280px;flex-shrink:0;border-right:1px solid var(--border);background:var(--surface);overflow-y:auto}
+#content{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px}
+.sec{border-bottom:1px solid var(--border)}
+.sh{padding:7px 12px;font-family:var(--mono);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);background:var(--surface-alt)}
+.sb{padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.f{display:flex;flex-direction:column;gap:3px}
+.f label{font-family:var(--mono);font-size:8px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.f input,.f select{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-family:var(--mono);font-size:11px;padding:5px 8px;width:100%;outline:none}
+.f input:focus,.f select:focus{border-color:var(--accent)}
+.hint{font-family:var(--mono);font-size:8px;color:var(--muted);line-height:1.4}
+.fr{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.f input[type=range]{padding:4px 0;accent-color:var(--accent)}
+.f .val{font-weight:600;color:var(--text)}
+.chk{display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:9px;color:var(--text2);cursor:pointer}
+.chk input{accent-color:var(--accent);width:auto}
+.run-btn{margin:10px 12px;padding:8px 12px;background:var(--teal);border:none;border-radius:var(--r);color:#fff;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer}
+.run-btn:disabled{opacity:.45;cursor:not-allowed}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.card-h{padding:8px 14px;border-bottom:1px solid var(--border);background:var(--surface-alt);font-family:var(--mono);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text2)}
+.card-b{padding:12px}
+.chart-wrap{position:relative;height:300px}
+.chart-wrap.sm{height:140px}
+.banner{font-family:var(--mono);font-size:10px;padding:8px 12px;border-radius:var(--r);border:1px solid;line-height:1.5}
+.banner.info{border-color:var(--teal);background:#ccfbf1;color:#0f766e}
+.banner.warn{border-color:var(--amber);background:#fef3c7;color:#92400e}
+.banner.err{border-color:var(--red);background:#fee2e2;color:var(--red)}
+.stage-row{display:flex;align-items:center;gap:8px;padding:3px 0;font-family:var(--mono);font-size:9px}
+.stage-dot{width:8px;height:8px;border-radius:50%}
+.chart-wrap.updating{opacity:.55;transition:opacity .15s}
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <h1>M100 VALIDATION — LOCAL</h1>
+  <span class="sub">reads from disk · no upload</span>
+  <a class="nav" href="/">Upload version</a>
+  <div class="spacer"></div>
+  <span id="status">ready</span>
+</div>
+
+<div id="sbar">
+  <div class="sv"><div class="sl">Power MAPE</div><div class="sn" id="s-mape">—</div></div>
+  <div class="sv"><div class="sl">Energy Err</div><div class="sn" id="s-eerr">—</div></div>
+  <div class="sv"><div class="sl">Peak Meas</div><div class="sn" id="s-pmeas">— kW</div></div>
+  <div class="sv"><div class="sl">Peak Calc</div><div class="sn" id="s-pcalc">— kW</div></div>
+  <div class="sv"><div class="sl">Bias</div><div class="sn" id="s-bias">— kW</div></div>
+  <div class="sv"><div class="sl">Jobs</div><div class="sn" id="s-jobs">—</div></div>
+</div>
+
+<div id="main">
+  <div id="sidebar">
+    <div class="sec">
+      <div class="sh">Local M100 dataset</div>
+      <div class="sb">
+        <div class="f"><label>Data root</label><input id="root" type="text"></div>
+        <div class="f"><label>Month</label><select id="month"><option value="">loading…</option></select></div>
+        <div class="hint" id="root-hint"></div>
+      </div>
+    </div>
+    <div class="sec">
+      <div class="sh">Time window (UTC)</div>
+      <div class="sb">
+        <div class="f"><label>Start</label><input id="t0" value="2022-03-15T12:00:00Z"></div>
+        <div class="f"><label>End</label><input id="t1" value="2022-03-15T18:00:00Z"></div>
+        <div class="hint" id="window-hint">Longer windows take longer. Use a larger Grid (s) for multi-day ranges.</div>
+      </div>
+    </div>
+    <div class="sec">
+      <div class="sh">Model settings</div>
+      <div class="sb">
+        <div class="fr">
+          <div class="f"><label>Grid (s)</label><input id="grid" type="number" min="60" step="60" value="300"></div>
+          <div class="f"><label>Draws</label><input id="draws" type="number" min="1" max="20" value="1"></div>
+        </div>
+        <div class="f"><label>V100 inventory</label><input id="inv-v100" type="number" value="3920"></div>
+        <div class="f"><label>Baseline kW (non-GPU IT offset)</label><input id="baseline" type="number" min="0" step="10" value="0"></div>
+        <div class="hint">After the first run, baseline updates the chart instantly (ρ fixed from config).</div>
+      </div>
+    </div>
+    <button class="run-btn" id="run-btn" onclick="runValidation()">▶ Run Validation</button>
+  </div>
+
+  <div id="content">
+    <div class="banner info" id="welcome">
+      Reads <strong>logics_pub</strong> (Tot_ict) and <strong>job_table</strong> directly from your local
+      ExaData bundle. No file upload — re-run as many times as you want.
+    </div>
+    <div class="banner warn">
+      Tot_ict is facility IT total; the model covers V100 GPU fleet power only.
+    </div>
+    <div class="banner err hidden" id="error"></div>
+    <div class="card hidden" id="overlay-card">
+      <div class="card-h">Measured vs Calculated IT Power (kW)</div>
+      <div class="card-b"><div class="chart-wrap"><canvas id="overlay-chart"></canvas></div></div>
+    </div>
+    <div class="card hidden" id="resid-card">
+      <div class="card-h">Residual — Calculated − Measured (kW)</div>
+      <div class="card-b"><div class="chart-wrap sm"><canvas id="resid-chart"></canvas></div></div>
+    </div>
+    <div class="card hidden" id="meta-card">
+      <div class="card-h">Run metadata</div>
+      <div class="card-b" id="meta-body" style="font-family:var(--mono);font-size:10px;color:var(--text2)"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const MF = sz => ({family:"'IBM Plex Mono',monospace", size: sz});
+let overlayChart = null, residChart = null, targets = {power_mape_pct:15, energy_err_pct:10};
+const MAPE_FLOOR_KW = 1.0;
+let lastData = null;
+let liveTimer = null;
+let liveSeq = 0;
+let runTimer = null;
+
+function computeMetricsClient(measured, calculated, epochMs) {
+  const mask = measured.map(m => Number.isFinite(m) && m > MAPE_FLOOR_KW);
+  const cmpM = [], cmpC = [];
+  measured.forEach((m, i) => { if (mask[i]) { cmpM.push(m); cmpC.push(calculated[i]); } });
+  const mape = cmpM.length
+    ? cmpM.reduce((s, m, i) => s + Math.abs(cmpC[i] - m) / m, 0) / cmpM.length * 100
+    : null;
+  const bias = cmpM.length
+    ? cmpM.reduce((s, m, i) => s + (cmpC[i] - m), 0) / cmpM.length
+    : null;
+  const tH = epochMs.map(ms => ms / 1000 / 3600);
+  const trapz = (y, x) => {
+    let area = 0;
+    for (let i = 1; i < y.length; i++) area += (y[i - 1] + y[i]) * 0.5 * (x[i] - x[i - 1]);
+    return area;
+  };
+  const eMeas = trapz(measured, tH);
+  const eCalc = trapz(calculated, tH);
+  const energyErr = eMeas > 0 ? Math.abs(eCalc - eMeas) / eMeas * 100 : null;
+  return {
+    mape_pct: mape != null ? +mape.toFixed(2) : null,
+    energy_err_pct: energyErr != null ? +energyErr.toFixed(2) : null,
+    bias_kw: bias != null ? +bias.toFixed(2) : null,
+    e_meas_kwh: +eMeas.toFixed(1),
+    e_calc_kwh: +eCalc.toFixed(1),
+    peak_meas: +Math.max(...measured).toFixed(2),
+    peak_calc: +Math.max(...calculated).toFixed(2),
+    mean_meas: +(measured.reduce((a, b) => a + b, 0) / measured.length).toFixed(2),
+    mean_calc: +(calculated.reduce((a, b) => a + b, 0) / calculated.length).toFixed(2),
+    n_points: measured.length,
+    n_compared: cmpM.length,
+  };
+}
+
+function gpuModel(data) {
+  if (data.model) return data.model.slice();
+  const b = data.meta?.baseline_kw || 0;
+  return data.calculated.map(v => v - b);
+}
+
+function buildBaselineData(base, baselineKw) {
+  const model = gpuModel(base);
+  const calculated = model.map(v => +(v + baselineKw).toFixed(3));
+  const measured = base.measured;
+  const residual = calculated.map((c, i) => +(c - measured[i]).toFixed(3));
+  return {
+    ...base,
+    calculated,
+    residual,
+    metrics: computeMetricsClient(measured, calculated, base.epoch_ms),
+    meta: {...base.meta, baseline_kw: +baselineKw.toFixed(1)},
+  };
+}
+
+function setChartsUpdating(on) {
+  document.querySelectorAll('.chart-wrap').forEach(el => el.classList.toggle('updating', on));
+}
+
+function applyBaselineLive() {
+  if (!lastData) return;
+  const baseline = parseFloat(document.getElementById('baseline').value) || 0;
+  renderResults(buildBaselineData(lastData, baseline), {live: true});
+}
+
+function scheduleLiveInventoryUpdate() {
+  if (!lastData) return;
+  clearTimeout(liveTimer);
+  setStatus('loading', 'updating…');
+  liveTimer = setTimeout(() => runValidation({live: true}), 500);
+}
+
+function bindTuningControls() {
+  document.getElementById('baseline').addEventListener('input', applyBaselineLive);
+  document.getElementById('inv-v100').addEventListener('input', scheduleLiveInventoryUpdate);
+}
+
+async function init() {
+  try {
+    const [cfgR, winR] = await Promise.all([fetch('/api/config'), fetch('/api/windows')]);
+    const cfg = await cfgR.json();
+    const wins = await winR.json();
+    if (cfg.validate?.inventory?.V100) document.getElementById('inv-v100').value = cfg.validate.inventory.V100;
+    if (cfg.validate?.grid_seconds) document.getElementById('grid').value = cfg.validate.grid_seconds;
+    if (cfg.validate?.draws) document.getElementById('draws').value = cfg.validate.draws;
+    if (cfg.validate?.baseline_kw != null) document.getElementById('baseline').value = cfg.validate.baseline_kw;
+    targets = cfg.validate?.targets || targets;
+    bindTuningControls();
+    ['t0', 't1', 'month', 'root'].forEach(id => {
+      document.getElementById(id).addEventListener('change', () => { lastData = null; });
+    });
+    document.getElementById('root').value = wins.root || '';
+    document.getElementById('root-hint').textContent = wins.exists
+      ? `${wins.months.length} month(s) found`
+      : 'Dataset not found — set EXADATA_ROOT or fix path';
+    const sel = document.getElementById('month');
+    sel.innerHTML = wins.months.map(m =>
+      `<option value="${m.year_month}">${m.year_month} (${m.plugins.join(', ')})</option>`
+    ).join('') || '<option value="">no months</option>';
+  } catch (e) {
+    setStatus('error', 'init failed');
+  }
+}
+
+function setStatus(k, msg) {
+  const el = document.getElementById('status');
+  el.className = k; el.textContent = msg;
+}
+function showError(msg) {
+  const el = document.getElementById('error');
+  el.textContent = msg; el.classList.remove('hidden');
+}
+
+async function runValidation(opts = {}) {
+  const live = !!opts.live;
+  const ym = document.getElementById('month').value;
+  if (!ym) { if (!live) showError('Pick a month.'); return; }
+  const t0 = document.getElementById('t0').value.trim();
+  const t1 = document.getElementById('t1').value.trim();
+  if (!t0 || !t1) { if (!live) showError('Set Start and End times (UTC).'); return; }
+  const a = Date.parse(t0), b = Date.parse(t1);
+  if (isNaN(a) || isNaN(b) || b <= a) { if (!live) showError('Invalid time window — End must be after Start.'); return; }
+
+  const seq = ++liveSeq;
+  const btn = document.getElementById('run-btn');
+  if (!live) {
+    btn.disabled = true;
+    document.getElementById('welcome').classList.add('hidden');
+    document.getElementById('error').classList.add('hidden');
+  }
+  setChartsUpdating(true);
+  const tStart = Date.now();
+  if (!live) {
+    clearInterval(runTimer);
+    runTimer = setInterval(() => setStatus('loading', `computing… ${Math.round((Date.now()-tStart)/1000)}s`), 1000);
+    setStatus('loading', 'computing… 0s');
+  } else {
+    setStatus('loading', 'updating…');
+  }
+
+  try {
+    const resp = await fetch('/api/validate-local', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        root: document.getElementById('root').value,
+        year_month: ym,
+        t0, t1,
+        grid_seconds: parseInt(document.getElementById('grid').value) || 300,
+        draws: parseInt(document.getElementById('draws').value) || 1,
+        inventory: {V100: parseInt(document.getElementById('inv-v100').value) || 3920},
+        baseline_kw: parseFloat(document.getElementById('baseline').value) || 0,
+      }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || 'HTTP ' + resp.status);
+    if (seq !== liveSeq) return;
+    lastData = data;
+    const baseline = parseFloat(document.getElementById('baseline').value) || 0;
+    renderResults(buildBaselineData(data, baseline), {live: live && overlayChart});
+    setStatus('ok', live ? 'live' : `done in ${Math.round((Date.now()-tStart)/1000)}s`);
+  } catch (e) {
+    if (seq !== liveSeq) return;
+    if (!live) {
+      showError(e.message);
+      setStatus('error', 'failed');
+    } else if (lastData) {
+      setStatus('ok', 'live');
+    }
+  }
+  setChartsUpdating(false);
+  if (!live) {
+    clearInterval(runTimer);
+    btn.disabled = false;
+  }
+}
+
+function metricClass(val, target) {
+  if (val == null) return '';
+  return val <= target ? 'good' : 'bad';
+}
+
+function renderResults(data, opts = {}) {
+  const live = !!opts.live;
+  const m = data.metrics || {};
+  document.getElementById('s-mape').textContent = m.mape_pct != null ? m.mape_pct + '%' : '—';
+  document.getElementById('s-mape').className = 'sn ' + metricClass(m.mape_pct, targets.power_mape_pct);
+  document.getElementById('s-eerr').textContent = m.energy_err_pct != null ? m.energy_err_pct + '%' : '—';
+  document.getElementById('s-eerr').className = 'sn ' + metricClass(m.energy_err_pct, targets.energy_err_pct);
+  document.getElementById('s-pmeas').textContent = m.peak_meas != null ? m.peak_meas + ' kW' : '—';
+  document.getElementById('s-pcalc').textContent = m.peak_calc != null ? m.peak_calc + ' kW' : '—';
+  document.getElementById('s-bias').textContent = m.bias_kw != null ? m.bias_kw + ' kW' : '—';
+  document.getElementById('s-jobs').textContent = data.meta?.job_count ?? '—';
+
+  ['overlay-card','resid-card','meta-card'].forEach(id => document.getElementById(id).classList.remove('hidden'));
+
+  const residColors = data.residual.map(v => v >= 0 ? 'rgba(29,78,216,0.45)' : 'rgba(185,28,28,0.45)');
+  if (live && overlayChart && residChart) {
+    overlayChart.data.datasets[1].data = data.calculated;
+    overlayChart.update('none');
+    residChart.data.datasets[0].data = data.residual;
+    residChart.data.datasets[0].backgroundColor = residColors;
+    residChart.update('none');
+  } else {
+    if (overlayChart) overlayChart.destroy();
+    overlayChart = new Chart(document.getElementById('overlay-chart'), {
+      type: 'line',
+      data: {
+        labels: data.labels,
+        datasets: [
+          {label:'Measured', data:data.measured, borderColor:'#15803d', borderWidth:2, pointRadius:0, tension:0.2, fill:false},
+          {label:'Calculated', data:data.calculated, borderColor:'#1d4ed8', borderWidth:2, pointRadius:0, tension:0.2, borderDash:[5,3], fill:false},
+        ],
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false, animation:false,
+        plugins:{legend:{labels:{font:MF(9)}}},
+        scales:{x:{ticks:{font:MF(9), maxTicksLimit:16}}, y:{min:0, ticks:{font:MF(9)}}},
+      },
+    });
+
+    if (residChart) residChart.destroy();
+    residChart = new Chart(document.getElementById('resid-chart'), {
+      type: 'bar',
+      data: { labels: data.labels, datasets: [{ data: data.residual, backgroundColor: residColors }] },
+      options: { responsive:true, maintainAspectRatio:false, animation:false, plugins:{legend:{display:false}} },
+    });
+  }
+
+  const stages = data.meta?.stage_counts || {};
+  const stageHtml = Object.entries(stages).map(([s,n]) => `<div class="stage-row">${s}: ${n}</div>`).join('');
+  document.getElementById('meta-body').innerHTML =
+    `<div>Root: ${data.meta?.root || '—'}</div>` +
+    `<div>Month: ${data.meta?.year_month || '—'}</div>` +
+    `<div>Window: ${data.meta?.window?.t0} → ${data.meta?.window?.t1}</div>` +
+    `<div>baseline +${data.meta?.baseline_kw ?? 0} kW · ρ=${data.meta?.rho ?? '—'} (config)</div>` +
+    `<div>Grid: ${data.meta?.grid_seconds}s · ${data.meta?.grid_points} pts · Tasks: ${data.meta?.task_count}</div>` +
+    (stageHtml ? `<div style="margin-top:8px">${stageHtml}</div>` : '');
+}
+
+init();
+</script>
+</body>
+</html>

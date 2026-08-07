@@ -1,0 +1,347 @@
+\documentclass[10pt,a4paper,twocolumn]{article}
+
+\usepackage[hyphens]{url}
+\usepackage[margin=1.8cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{caption}
+\usepackage{enumitem}
+\usepackage{microtype}
+\usepackage{float}
+\usepackage{titlesec}
+\usepackage{balance}
+
+\titleformat{\section}{\normalsize\bfseries}{\thesection.}{0.5em}{}
+\titleformat{\subsection}{\small\bfseries}{\thesubsection}{0.5em}{}
+\setlength{\columnsep}{0.6cm}
+
+\hypersetup{colorlinks=true,linkcolor=blue!60!black,citecolor=blue!60!black,urlcolor=blue!50!black}
+
+\begin{document}
+
+% ── Title ─────────────────────────────────────────────────────────────────────
+\twocolumn[{%
+\centering
+{\large\bfseries Methodology: Stage-Aware IT Power Modeling\\
+and Validation on Marconi100\par}
+\vspace{0.3em}
+{\small Prince Tawiah \quad Michigan Technological University}
+
+\vspace{0.8em}
+\begin{minipage}{0.92\linewidth}
+\small\textbf{Abstract.}
+This document describes the methodology implemented in the IT-power simulation
+and validation toolchain. Fleet GPU power is computed from a Fan-style linear
+device model extended with an idle fraction~$\rho_k$ and the full installed
+inventory~$N_k$. Per-job utilization $u_m(t)$ is stage-dependent (training,
+fine-tuning, inference), with waveforms motivated by Li et~al.\ and related
+AI-power studies. On Marconi100 (M100) ExaData, SLURM \texttt{job\_table}
+schedules are replayed, stages are assigned by duration--scale heuristics, and
+modeled fleet GPU power is compared to Ganglia \texttt{Gpu*\_power\_usage}.
+An interactive Schedule Explorer (\texttt{validation\_v2}) and a synthetic-task
+simulator (\texttt{server.py}) operationalize the method.
+\end{minipage}
+\vspace{0.8em}
+}]
+
+% ── 1. Scope ──────────────────────────────────────────────────────────────────
+\section{Scope and Objectives}
+
+The methodology supports two complementary goals:
+
+\begin{enumerate}[leftmargin=1.2em,itemsep=2pt,topsep=2pt]
+  \item \textbf{Forward simulation:} given a set of AI tasks (manual or
+        uploaded), estimate time-varying IT/GPU power by hardware type and
+        lifecycle stage.
+  \item \textbf{Replay validation:} given real M100 job schedules and Ganglia
+        GPU telemetry for a fixed window, quantify how closely the same physics
+        matches measured fleet GPU power.
+\end{enumerate}
+
+Facility-level \texttt{Tot\_ict} (logics) is available in ExaData but is
+\emph{not} the primary target of the current Schedule Explorer, which validates
+\textbf{GPU power only}.
+
+% ── 2. Core power model ───────────────────────────────────────────────────────
+\section{Core Power Formula}
+\label{sec:formula}
+
+For each hardware class~$k$ (e.g.\ V100), let $N_k$ be the installed device
+count, $P_k^{\max}$ the device TDP, $\rho_k$ the idle fraction of TDP, and
+$\eta_k(t)$ the fraction of the inventory allocated to active jobs. The fleet
+macro power (kW when $P$ is in watts) is
+\begin{equation}
+  P_k(t) = N_k\,P_k^{\max}
+  \bigl[\eta_k(t)\,U_k(t) + \bigl(1-\eta_k(t)\bigr)\rho_k\bigr],
+  \label{eq:core}
+\end{equation}
+with total IT contribution
+\begin{equation}
+  P_{\mathrm{macro}}(t)=\sum_k P_k(t),\qquad
+  P_{\mathrm{total}}(t)=P_{\mathrm{macro}}(t)+P_{\mathrm{infra}}.
+  \label{eq:total}
+\end{equation}
+Infrastructure $P_{\mathrm{infra}}$ (network/storage/misc) is an optional
+constant offset in the interactive simulator and is set to zero in M100 GPU
+validation.
+
+\subsection{Allocation and weighted utilization}
+
+At time~$t$, let $\mathcal{A}_k(t)$ be the set of active tasks on hardware~$k$.
+Demand $D_k(t)=\sum_{m\in\mathcal{A}_k} n_m$ (requested devices). If
+$D_k\le N_k$, each task keeps its request; otherwise requests are scaled
+pro~rata:
+\begin{equation}
+  n_m^{\mathrm{eff}} = n_m\cdot\min\!\Bigl(1,\frac{N_k}{D_k}\Bigr),\qquad
+  N_k^{\mathrm{alloc}}=\min(D_k,N_k),\qquad
+  \eta_k=\frac{N_k^{\mathrm{alloc}}}{N_k}.
+\end{equation}
+The busy utilization is a device-weighted average of per-task utilizations:
+\begin{equation}
+  U_k(t)=\sum_{m\in\mathcal{A}_k}
+  \alpha_m\,u_m(t),\qquad
+  \alpha_m=\frac{n_m^{\mathrm{eff}}}{N_k^{\mathrm{alloc}}},
+  \label{eq:Uk}
+\end{equation}
+then floored at idle, $U_k\leftarrow\max(U_k,\rho_k)$. Unallocated devices
+contribute only the idle term $(1-\eta_k)\rho_k$ inside~\eqref{eq:core}; no
+separate inventory-idle addend is required.
+
+\subsection{Idle fraction $\rho_k$}
+
+We define
+\begin{equation}
+  \rho_k=\frac{P_{k,\mathrm{idle}}}{P_k^{\max}},
+  \label{eq:rho}
+\end{equation}
+so idle power per device is $\rho_k P_k^{\max}$. This differs from a
+capacity-normalized estimator; $\rho_k$ is treated as a hardware constant
+in \texttt{config.json}.
+
+\begin{table}[H]
+\centering
+\caption{Hardware library used by the simulator (from \texttt{config.json}).}
+\label{tab:hw}
+\renewcommand{\arraystretch}{1.15}
+\small
+\begin{tabular}{lccc}
+\toprule
+HW & $P^{\max}$ (W) & $\rho_k$ & Role \\
+\midrule
+H100    & 700 & 0.129 & library \\
+A100    & 400 & 0.288 & library \\
+TPUv4   & 450 & 0.176 & library \\
+CPU STD & 400 & 0.450 & library \\
+CPU HPC & 550 & 0.451 & library \\
+V100    & 300 & $\approx$0.117 & \textbf{M100 replay} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent For M100 validation the active class is V100 with
+$P^{\max}=300\,\mathrm{W}$ (Volta TDP) and four GPUs per node. Inventory for
+replay is set near the Ganglia reporting footprint
+($N_{\mathrm{V100}}=3780$ in the current preset; cluster nameplate is
+980 nodes~$\times$4).
+
+% ── 3. Stages ─────────────────────────────────────────────────────────────────
+\section{Stage Utilization Models}
+\label{sec:stages}
+
+Jobs/tasks are labeled as \texttt{training}, \texttt{fine\_tuning}, or
+\texttt{inference}. Utilization $u_m(t)$ is drawn from stage-specific
+stochastic processes implemented in \texttt{stochastic\_util}
+(\texttt{server.py}), with parameters in \texttt{stage\_physics} and clamp
+bounds in \texttt{stage\_defaults}.
+
+\subsection{Stage assignment on M100 replay}
+
+ExaData \texttt{job\_table} does not provide AI-stage labels. For V100
+replay we assign stages by duration and node count
+(\texttt{replay.stage\_thresholds}):
+\begin{equation}
+\begin{aligned}
+&\text{training if } T\ge 1\,\mathrm{h}\ \wedge\ n_{\mathrm{nodes}}\ge 16,\\
+&\text{inference if } T<0.25\,\mathrm{h}\ \vee\ n_{\mathrm{nodes}}<4,\\
+&\text{fine-tuning otherwise.}
+\end{aligned}
+\end{equation}
+This is a \emph{heuristic proxy}, not ground truth; mislabeling is a known
+limitation when comparing shapes to Ganglia.
+
+\subsection{Training}
+
+Most of the time the job sits on a compute plateau:
+\begin{equation}
+  u\sim\mathcal{N}(u_{\mathrm{plateau}},\sigma_{\mathrm{plateau}}^2),
+  \quad u\leftarrow\mathrm{clip}(u;u_{\min},u_{\max}).
+\end{equation}
+Every $\texttt{checkpoint\_ms}$ (default 300\,s) a dip of duration
+$\texttt{checkpoint\_dur\_ms}$ draws from a low checkpoint utilization
+band. Parameters are motivated by checkpoint/communication structure in
+large-model training literature \cite{li2024unseen,shoeybi2019megatron}.
+
+\subsection{Fine-tuning}
+
+Analogous plateau with periodic \emph{evaluation} dips
+(\texttt{eval\_period\_ms}, \texttt{eval\_dur\_ms}, low $u_{\mathrm{eval}}$),
+following the qualitative shape in Li et~al.\ Fig.~13 \cite{li2024unseen}.
+
+\subsection{Inference}
+
+Without an explicit request schedule (M100 replay path), occupancy is
+approximated from rate $\lambda$ (req/h) and service time $\tau$:
+\begin{equation}
+  p_{\mathrm{busy}}=\min\bigl(1,\lambda\tau/3600\bigr).
+\end{equation}
+With probability $p_{\mathrm{busy}}$ draw burst utilization
+$\mathcal{N}(u_{\mathrm{burst}},\sigma_{\mathrm{burst}}^2)$; otherwise draw
+idle utilization floored by $\max(u_{\mathrm{idle}},\rho_k)$ and capped by
+$\texttt{idle\_u\_max}$. When a synthetic schedule is available, busy/idle
+device counts are taken from Poisson-generated request intervals instead.
+
+\begin{table}[H]
+\centering
+\caption{Representative stage parameters (tunable in \texttt{config.json}).}
+\label{tab:stages}
+\small
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{lccc}
+\toprule
+Stage & Plateau / burst & Clamp / notes & Native micro step \\
+\midrule
+Training & $u_{\mathrm{plateau}}$ & $u_{\min}$--$u_{\max}$; 5\,min ckpt & 10\,s \\
+Fine-tuning & $u_{\mathrm{plateau}}$ & eval dips $\sim$4\,min & 1\,s \\
+Inference & $u_{\mathrm{burst}}$ / $u_{\mathrm{idle}}$ & $\lambda$, $\tau$ & 100\,ms \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent Macro charts in the interactive simulator downsample to at most
+\texttt{macro\_max\_pts}; per-stage micro panels illustrate waveform
+\emph{shape} and are \textbf{not} required to sum to the fleet macro curve.
+
+% ── 4. Validation on M100 ─────────────────────────────────────────────────────
+\section{Validation Methodology (M100 ExaData)}
+\label{sec:validation}
+
+\subsection{Data sources}
+
+\begin{itemize}[leftmargin=1.2em,itemsep=1pt,topsep=2pt]
+  \item \texttt{plugin=job\_table}: job start/end, \texttt{num\_nodes}, ids
+        (metric \texttt{job\_info\_marconi100}).
+  \item \texttt{plugin=ganglia\_pub}: per-GPU
+        \texttt{Gpu\{0--3\}\_power\_usage} (W).
+\end{itemize}
+Measured fleet GPU power is formed by flooring samples to 1\,min, averaging
+per (minute, node, Gpu metric), summing watts across reporting GPUs, and
+converting to kW. This includes idle and busy GPUs that report---there is no
+Slurm allocation filter on the measurement.
+
+\subsection{Window and caching}
+
+Default validation window: 2022-03-15\,UTC (configurable in
+\texttt{validation\_v2/slice\_config.json}). Reporting grid
+$\Delta t_{\mathrm{grid}}=300\,\mathrm{s}$. Modeled power is evaluated on a
+finer sub-step $\Delta t_{\mathrm{sub}}$ (default 30\,s) inside each bin and
+averaged, so checkpoint/eval dips are not systematically aliased to the
+5-minute grid. Results are cached in
+\texttt{validation\_v2/slice\_cache/day\_slice.json}; changing
+\texttt{config.json} requires rebuilding the slice.
+
+\subsection{Modeled series}
+
+All jobs overlapping the window are converted to tasks
+(\texttt{job\_to\_task}), classified, and simulated with~\eqref{eq:core}.
+Outputs include: fleet $P(t)$; per-stage attributed power (allocated devices
+only); active job/node counts; a filtered Gantt for visualization. Stage
+charts need not sum exactly to fleet power because unallocated idle
+$(1-\eta)\rho N P^{\max}$ appears only in the fleet curve.
+
+\subsection{Comparison metrics}
+
+Primary comparisons against Ganglia:
+mean/peak power, pointwise residual, MAPE, and Pearson correlation~$r$ on
+the aligned grid. Level agreement and shape agreement are reported separately:
+mean-matched runs can still be anti-correlated if stage/schedule attribution
+is wrong.
+
+% ── 5. Software architecture ──────────────────────────────────────────────────
+\section{Software Architecture}
+
+\begin{itemize}[leftmargin=1.2em,itemsep=1pt,topsep=2pt]
+  \item \texttt{config.json} --- hardware, stage physics, M100 preset, replay
+        thresholds.
+  \item \texttt{server.py} + \texttt{index.html} --- interactive simulator
+        (port 5000): manual tasks, macro/micro charts, optional job replay API.
+  \item \texttt{validation/exadata.py} --- Parquet loaders for ExaData.
+  \item \texttt{validation\_v2/} --- Schedule Explorer (port 5051):
+        measured vs modeled GPU power, Gantt, stage panels.
+\end{itemize}
+
+Physics is shared: validation imports \texttt{stochastic\_util},
+\texttt{job\_to\_task}, and hardware constants from \texttt{server.py}.
+
+% ── 6. Limitations ────────────────────────────────────────────────────────────
+\section{Limitations and Tuning Practice}
+
+\begin{enumerate}[leftmargin=1.2em,itemsep=2pt,topsep=2pt]
+  \item Stage labels are heuristic; Ganglia has no stage ground truth.
+  \item Inference occupancy without per-job request traces is a mean-field
+        approximation ($\lambda,\tau$) and can under-represent sharp spikes.
+  \item Clamp bounds $u_{\min},u_{\max}$ must remain consistent with
+        $u_{\mathrm{plateau}}$; otherwise plateau edits have no effect.
+  \item $P^{\max}$ should remain device TDP (300\,W for V100); substituting
+        observed average watts collapses physical meaning of $\rho$ and $u$.
+  \item Dynamic terms $C\dot P+D\ddot P$ from earlier drafts are
+        \emph{not} in the current validation path; they remain future work.
+  \item Practical tuning separates \textbf{level} (util, $\lambda$, $\rho$,
+        $N_k$) from \textbf{shape} (stage rules, concurrency response,
+        schedule fidelity). Matching day-mean alone is insufficient when~$r$
+        is negative.
+\end{enumerate}
+
+\balance
+\begin{thebibliography}{9}
+
+\bibitem{fan2007power}
+W.~Fan \textit{et al.},
+``Power provisioning for a warehouse-sized computer,''
+\textit{ISCA}, 2007.
+
+\bibitem{li2024unseen}
+Y.~Li \textit{et al.},
+``The unseen AI disruptions for power grids: LLM-induced transients,''
+\textit{arXiv:2409.11416}, 2024.
+
+\bibitem{chen2025electricity}
+X.~Chen \textit{et al.},
+``Electricity demand and grid impacts of AI data centers,''
+\textit{arXiv:2509.07218}, 2025.
+
+\bibitem{choukse2025power}
+E.~Choukse \textit{et al.},
+``Power stabilization for AI training datacenters,''
+\textit{arXiv:2508.14318}, 2025.
+
+\bibitem{shoeybi2019megatron}
+M.~Shoeybi \textit{et al.},
+``Megatron-LM: Training multi-billion parameter language models using
+model parallelism,''
+\textit{arXiv:1909.08053}, 2019.
+
+\bibitem{google2023tpuv4}
+Google Cloud, ``TPU v4 enables performance, energy and CO$_2$e efficiency gains,''
+2023.
+
+\bibitem{epri2024powering}
+J.~Aljbour \textit{et al.},
+``Powering intelligence: Analyzing AI and data center energy consumption,''
+EPRI White Paper 3002028905, 2024.
+
+\end{thebibliography}
+
+\end{document}

@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>M100 Schedule Explorer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#f4f3ef; --surface:#ffffff; --surface-alt:#f9f8f5;
+  --border:#dddad3; --border-strong:#c5c1b8;
+  --text:#1a1916; --text2:#5c5a54; --muted:#908d85;
+  --accent:#1d4ed8; --accent-dim:#dbeafe;
+  --green:#15803d; --red:#b91c1c; --amber:#b45309;
+  --mono:'IBM Plex Mono',monospace; --sans:'IBM Plex Sans',system-ui,sans-serif; --r:5px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13px;min-height:100vh;display:flex;flex-direction:column;}
+
+#topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 14px;height:42px;display:flex;align-items:center;gap:12px;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,.06);}
+#topbar h1{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--accent);letter-spacing:.05em;}
+#ftag{font-family:var(--mono);font-size:9px;color:var(--muted);background:var(--surface-alt);border:1px solid var(--border);border-radius:999px;padding:2px 10px;}
+.spacer{flex:1;}
+#spill{font-family:var(--mono);font-size:9px;padding:3px 10px;border-radius:999px;border:1px solid var(--border);color:var(--muted);}
+#spill.loading{border-color:var(--accent);color:var(--accent);background:var(--accent-dim);}
+#spill.error{border-color:var(--red);color:var(--red);background:#fee2e2;}
+#spill.ok{border-color:var(--green);color:var(--green);background:#dcfce7;}
+
+#sbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 14px;height:38px;display:flex;align-items:center;gap:24px;flex-wrap:wrap;flex-shrink:0;}
+#sync-readout{font-family:var(--mono);font-size:9px;color:var(--accent);background:var(--accent-dim);border:1px solid var(--accent);border-radius:999px;padding:2px 10px;display:none;}
+#sync-readout.on{display:inline-block;}
+.sv{display:flex;flex-direction:column;gap:1px;}
+.sl{font-family:var(--mono);font-size:8px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);}
+.sn{font-family:var(--mono);font-size:13px;font-weight:600;}
+
+#main{display:flex;flex:1;min-height:0;}
+#left{width:220px;flex-shrink:0;border-right:1px solid var(--border);background:var(--surface);overflow-y:auto;}
+#center{flex:1;display:flex;flex-direction:column;overflow-y:auto;min-width:0;}
+
+.psec{border-bottom:1px solid var(--border);}
+.ph{padding:7px 12px;font-family:var(--mono);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);background:var(--surface-alt);}
+.pb{padding:10px 12px;display:flex;flex-direction:column;gap:7px;}
+.hint{font-family:var(--mono);font-size:8px;color:var(--muted);line-height:1.45;}
+.btn{padding:6px 10px;border-radius:var(--r);font-family:var(--mono);font-size:10px;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text2);}
+.btn:hover{border-color:var(--accent);color:var(--accent);}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+.meta-row{font-family:var(--mono);font-size:9px;color:var(--text2);padding:2px 0;border-bottom:1px solid var(--border);}
+.f{display:flex;flex-direction:column;gap:3px;}
+.f label{font-family:var(--mono);font-size:8px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);}
+.f input{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-family:var(--mono);font-size:11px;padding:5px 8px;width:100%;outline:none;}
+.f input:focus{border-color:var(--accent);}
+
+.chart-block{padding:8px 12px 0;border-bottom:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;}
+.chart-block h3{font-family:var(--mono);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:5px;}
+.cw{position:relative;height:220px;}
+.cw.sm{height:140px;}
+.cw canvas{position:absolute;inset:0;width:100%!important;height:100%!important;cursor:crosshair;}
+
+#gantt-block{padding:8px 12px;border-bottom:1px solid var(--border);flex-shrink:0;}
+#gantt-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+#gantt-header h3{font-family:var(--mono);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);}
+#gantt-meta{font-family:var(--mono);font-size:9px;color:var(--muted);}
+#gantt-wrap{position:relative;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);overflow:auto;max-height:320px;cursor:crosshair;}
+#tl-canvas{display:block;width:100%;cursor:crosshair;}
+
+#job-panel{position:fixed;top:80px;right:16px;width:280px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:0 4px 24px rgba(0,0,0,.12);z-index:300;display:none;}
+#job-panel.open{display:block;}
+.jph{padding:10px 12px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:11px;font-weight:700;display:flex;justify-content:space-between;align-items:center;background:var(--surface-alt);}
+.jpb{padding:11px 12px;display:flex;flex-direction:column;gap:8px;}
+.jprow{display:flex;justify-content:space-between;gap:10px;font-family:var(--mono);font-size:9px;padding:4px 0;border-bottom:1px solid var(--border);}
+.jprow:last-child{border-bottom:none;}
+.jpl{color:var(--muted);text-transform:uppercase;letter-spacing:.05em;flex-shrink:0;}
+.jpv{color:var(--text);text-align:right;word-break:break-all;}
+.stage-pill{display:inline-block;font-family:var(--mono);font-size:8px;font-weight:700;padding:2px 8px;border-radius:999px;border:1px solid;}
+.stage-pill.training{color:#991b1b;background:#fee2e2;border-color:#f87171;}
+.stage-pill.fine_tuning{color:#92400e;background:#fef3c7;border-color:#fbbf24;}
+.stage-pill.inference{color:#1e3a8a;background:#dbeafe;border-color:#60a5fa;}
+
+#cursor-panel .cp-time{font-family:var(--mono);font-size:10px;font-weight:700;color:var(--accent);margin-bottom:8px;}
+#cursor-panel .cp-power{display:flex;flex-direction:column;gap:4px;padding:8px 0;border-bottom:1px solid var(--border);margin-bottom:8px;}
+#cursor-panel .cp-row{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;}
+#cursor-panel .cp-row .k{color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
+#cursor-panel .cp-row .v{font-weight:600;}
+#cursor-panel .cp-stage{margin-bottom:6px;padding:6px 0;border-bottom:1px solid var(--border);}
+#cursor-panel .cp-stage:last-child{border-bottom:none;margin-bottom:0;}
+#cursor-panel .cp-stitle{font-family:var(--mono);font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;}
+#cursor-panel .cp-stitle.tr{color:#991b1b;}
+#cursor-panel .cp-stitle.ft{color:#92400e;}
+#cursor-panel .cp-stitle.inf{color:#1e3a8a;}
+#cursor-panel .cp-idle{color:var(--muted);font-family:var(--mono);font-size:9px;line-height:1.45;}
+
+#micro-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);flex-shrink:0;}
+.mp{background:var(--surface);display:flex;flex-direction:column;min-height:180px;}
+.mph{padding:5px 10px;border-bottom:1px solid var(--border);background:var(--surface-alt);display:flex;align-items:center;justify-content:space-between;}
+.mpn{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.06em;}
+.mpp{font-family:var(--mono);font-size:8px;color:var(--muted);}
+.mcw{flex:1;padding:3px 5px;position:relative;min-height:120px;}
+.mcw canvas{position:absolute;top:3px;left:5px;right:5px;bottom:3px;width:calc(100% - 10px)!important;height:calc(100% - 6px)!important;cursor:crosshair;}
+.mal{font-family:var(--mono);font-size:8px;color:var(--muted);padding:2px 8px 6px;text-align:center;}
+
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:2px;}
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <h1>SCHEDULE EXPLORER</h1>
+  <span id="ftag">M100 · ganglia GPU vs modeled · 1-day</span>
+  <div class="spacer"></div>
+  <span id="spill">loading…</span>
+</div>
+
+<div id="sbar">
+  <div class="sv"><div class="sl">Peak ganglia</div><div class="sn" id="s-peak-gpu">— kW</div></div>
+  <div class="sv"><div class="sl">Mean ganglia</div><div class="sn" id="s-mean-gpu">— kW</div></div>
+  <div class="sv"><div class="sl">Peak modeled</div><div class="sn" id="s-peak-model">— kW</div></div>
+  <div class="sv"><div class="sl">r (fleet↔ganglia)</div><div class="sn" id="s-r-gpu">—</div></div>
+  <div class="sv"><div class="sl">Jobs in window</div><div class="sn" id="s-jobs">—</div></div>
+  <div class="sv"><div class="sl">Gantt rows</div><div class="sn" id="s-gantt">—</div></div>
+  <span id="sync-readout">—</span>
+</div>
+
+<div id="main">
+  <div id="left">
+    <div class="psec">
+      <div class="ph">1-day slice</div>
+      <div class="pb">
+        <div class="meta-row" id="m-window">—</div>
+        <div class="meta-row" id="m-month">—</div>
+        <div class="meta-row" id="m-points">—</div>
+        <div class="meta-row" id="m-stages">—</div>
+        <div class="hint">Pre-sliced from your local M100 bundle so the page loads in seconds. Edit <code>validation_v2/slice_config.json</code> to change the day.</div>
+        <button class="btn primary" id="btn-rebuild" type="button">Rebuild slice cache</button>
+      </div>
+    </div>
+    <div class="psec">
+      <div class="ph">Legend</div>
+      <div class="pb hint">
+        <div><span style="color:#991b1b">■</span> Training</div>
+        <div><span style="color:#92400e">■</span> Fine-tuning</div>
+        <div><span style="color:#1e3a8a">■</span> Inference</div>
+        <div style="margin-top:6px">One timeline — bar color = stage (TR/FT/INF). Hover for synced time cursor.</div>
+      </div>
+    </div>
+    <div class="psec">
+      <div class="ph">At cursor · all jobs</div>
+      <div class="pb" id="cursor-panel">
+        <div class="cp-idle">Hover any chart or the schedule to see active jobs, nodes, and power at that instant.</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="center">
+    <div class="chart-block">
+      <h3>GPU power — measured ganglia vs modeled fleet</h3>
+      <div class="cw"><canvas id="c-gpu"></canvas></div>
+    </div>
+
+    <div id="gantt-block">
+      <div id="gantt-header">
+        <h3>Job schedule (job_table)</h3>
+        <span id="gantt-meta">—</span>
+      </div>
+      <div id="gantt-wrap">
+        <canvas id="tl-canvas"></canvas>
+      </div>
+    </div>
+
+    <div id="micro-grid">
+      <div class="mp">
+        <div class="mph"><span class="mpn" style="color:#b91c1c">TRAINING</span><span class="mpp" id="pill-training">—</span></div>
+        <div class="mcw"><canvas id="mc-training"></canvas></div>
+        <div class="mal">GPU kW from training-classified jobs in this day</div>
+      </div>
+      <div class="mp">
+        <div class="mph"><span class="mpn" style="color:#b45309">FINE-TUNING</span><span class="mpp" id="pill-fine_tuning">—</span></div>
+        <div class="mcw"><canvas id="mc-fine_tuning"></canvas></div>
+        <div class="mal">GPU kW from fine-tuning jobs</div>
+      </div>
+      <div class="mp">
+        <div class="mph"><span class="mpn" style="color:#1d4ed8">INFERENCE</span><span class="mpp" id="pill-inference">—</span></div>
+        <div class="mcw"><canvas id="mc-inference"></canvas></div>
+        <div class="mal">GPU kW from inference jobs</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="job-panel">
+  <div class="jph">
+    <span id="jp-title">Job details</span>
+    <button class="btn" type="button" id="jp-close">✕</button>
+  </div>
+  <div class="jpb" id="jp-body">
+    <div class="hint">Click a colored bar in the schedule to inspect that job.</div>
+  </div>
+</div>
+
+<script>
+const STAGE_COL={
+  training:   {fill:'#fee2e2',stroke:'#f87171',text:'#991b1b'},
+  fine_tuning:{fill:'#fef3c7',stroke:'#fbbf24',text:'#92400e'},
+  inference:  {fill:'#dbeafe',stroke:'#60a5fa',text:'#1e3a8a'},
+};
+const MICRO_COL={
+  training:   {line:'#b91c1c',fill:'rgba(185,28,28,0.08)'},
+  fine_tuning:{line:'#b45309',fill:'rgba(180,83,9,0.08)'},
+  inference:  {line:'#1d4ed8',fill:'rgba(29,78,216,0.08)'},
+};
+const STAGE_SHORT={training:'TR',fine_tuning:'FT',inference:'INF'};
+const STAGE_PANEL=[
+  {id:'training', label:'Training', cls:'tr'},
+  {id:'fine_tuning', label:'Fine-tuning', cls:'ft'},
+  {id:'inference', label:'Inference', cls:'inf'},
+];
+const MF=sz=>({family:"'IBM Plex Mono',monospace",size:sz});
+
+let sliceData=null, charts={}, ganttJobs=[], durationMs=0, windowT0Ms=0;
+let canvasHits=[], selectedJobId=null, cursorMs=null;
+const GANTT={rowH:16, padL:96, padR:8, padT:8, padB:20};
+const CHART_IDS=['gpu','training','fine_tuning','inference'];
+
+function setStatus(kind, msg){const el=document.getElementById('spill');el.className=kind;el.textContent=msg;}
+
+function fmtMsLabel(ms){
+  if(!windowT0Ms) return '';
+  const d=new Date(windowT0Ms+ms);
+  const mo=String(d.getUTCMonth()+1).padStart(2,'0');
+  const da=String(d.getUTCDate()).padStart(2,'0');
+  const hh=String(d.getUTCHours()).padStart(2,'0');
+  const mm=String(d.getUTCMinutes()).padStart(2,'0');
+  return `${mo}-${da} ${hh}:${mm}`;
+}
+
+function nearestIndex(ms){
+  if(!sliceData) return -1;
+  const xs=sliceData.measured.epoch_ms;
+  if(!xs.length) return -1;
+  let best=0, bestD=Infinity;
+  for(let i=0;i<xs.length;i++){
+    const d=Math.abs(xs[i]-ms);
+    if(d<bestD){bestD=d;best=i;}
+  }
+  return best;
+}
+
+function valueAtMs(arr, ms){
+  const i=nearestIndex(ms);
+  return i>=0?arr[i]:null;
+}
+
+function updateSyncReadout(){
+  const el=document.getElementById('sync-readout');
+  if(cursorMs==null||!sliceData){
+    el.classList.remove('on');
+    updateCursorPanel();
+    return;
+  }
+  const gang=valueAtMs(sliceData.measured.kw, cursorMs);
+  const gpu=valueAtMs(sliceData.modeled.fleet_kw, cursorMs);
+  const i=nearestIndex(cursorMs);
+  let totalJobs=0;
+  if(i>=0&&sliceData.modeled.active_jobs){
+    for(const s of ['training','fine_tuning','inference']){
+      totalJobs+=sliceData.modeled.active_jobs[s][i]||0;
+    }
+  }
+  const gStr=gang!=null?gang.toFixed(0)+' kW':'—';
+  const mStr=gpu!=null?gpu.toFixed(0)+' kW':'—';
+  el.textContent=`${fmtMsLabel(cursorMs)} UTC · ganglia ${gStr} · model ${mStr} · ${totalJobs} jobs`;
+  el.classList.add('on');
+  updateCursorPanel();
+}
+
+function updateCursorPanel(){
+  const panel=document.getElementById('cursor-panel');
+  if(!sliceData||cursorMs==null){
+    panel.innerHTML='<div class="cp-idle">Hover any chart or the schedule to see active jobs, nodes, and power at that instant.</div>';
+    return;
+  }
+  const i=nearestIndex(cursorMs);
+  if(i<0){
+    panel.innerHTML='<div class="cp-idle">No data at this time.</div>';
+    return;
+  }
+  const gang=sliceData.measured.kw[i];
+  const gpu=sliceData.modeled.fleet_kw[i];
+  const aj=sliceData.modeled.active_jobs||{};
+  const an=sliceData.modeled.active_nodes||{};
+  const byStage=sliceData.modeled.by_stage||{};
+
+  let html=`<div class="cp-time">${fmtMsLabel(cursorMs)} UTC</div>`;
+  html+=`<div class="cp-power">
+    <div class="cp-row"><span class="k">Ganglia GPU</span><span class="v">${gang.toFixed(1)} kW</span></div>
+    <div class="cp-row"><span class="k">Modeled GPU</span><span class="v">${gpu.toFixed(1)} kW</span></div>
+    <div class="cp-row"><span class="k">Gap (model − ganglia)</span><span class="v">${(gpu-gang).toFixed(1)} kW</span></div>
+  </div>`;
+
+  for(const st of STAGE_PANEL){
+    const jobs=(aj[st.id]&&aj[st.id][i])||0;
+    const nodes=(an[st.id]&&an[st.id][i])||0;
+    const pkw=(byStage[st.id]&&byStage[st.id][i])||0;
+    html+=`<div class="cp-stage">
+      <div class="cp-stitle ${st.cls}">${st.label}</div>
+      <div class="cp-row"><span class="k">Active jobs</span><span class="v">${jobs.toLocaleString()}</span></div>
+      <div class="cp-row"><span class="k">Nodes allocated</span><span class="v">${nodes.toLocaleString()}</span></div>
+      <div class="cp-row"><span class="k">Calc GPU power</span><span class="v">${pkw.toFixed(1)} kW</span></div>
+    </div>`;
+  }
+  panel.innerHTML=html;
+}
+
+function setCursorMs(ms){
+  if(ms==null||ms<0||ms>durationMs){hideCursor();return;}
+  cursorMs=ms;
+  CHART_IDS.forEach(id=>{if(charts[id]) charts[id].draw();});
+  drawGantt();
+  updateSyncReadout();
+}
+
+function hideCursor(){
+  cursorMs=null;
+  CHART_IDS.forEach(id=>{if(charts[id]) charts[id].draw();});
+  drawGantt();
+  document.getElementById('sync-readout').classList.remove('on');
+  updateCursorPanel();
+}
+
+function drawCrosshair(chart){
+  if(cursorMs==null||!chart.chartArea) return;
+  const x=chart.scales.x.getPixelForValue(cursorMs);
+  if(x<chart.chartArea.left||x>chart.chartArea.right) return;
+  const ctx=chart.ctx;
+  ctx.save();
+  ctx.strokeStyle='rgba(29,78,216,0.75)';
+  ctx.lineWidth=1;
+  ctx.setLineDash([4,3]);
+  ctx.beginPath();
+  ctx.moveTo(x, chart.chartArea.top);
+  ctx.lineTo(x, chart.chartArea.bottom);
+  ctx.stroke();
+  ctx.restore();
+}
+
+Chart.register({
+  id:'syncCrosshair',
+  afterDraw(chart){drawCrosshair(chart);},
+  afterEvent(chart, args){
+    const e=args.event;
+    if(e.type==='mousemove'&&chart.chartArea){
+      if(e.x>=chart.chartArea.left&&e.x<=chart.chartArea.right){
+        setCursorMs(chart.scales.x.getValueForPixel(e.x));
+      }
+    }
+  },
+});
+
+function chartOpts(yLabel, stepped=false){
+  return {
+    responsive:true,maintainAspectRatio:false,animation:false,
+    interaction:{mode:'nearest',intersect:false,axis:'x'},
+    plugins:{
+      legend:{display:false},
+      tooltip:{
+        titleFont:MF(9),bodyFont:MF(10),
+        callbacks:{
+          title:items=>items.length?fmtMsLabel(items[0].parsed.x):'',
+          label:c=>`${c.dataset.label}: ${c.parsed.y.toFixed(2)} kW`,
+        },
+      },
+    },
+    scales:{
+      x:{
+        type:'linear', min:0, max:durationMs||1,
+        title:{display:true,text:'Time (UTC)',font:MF(9),color:'#908d85'},
+        grid:{color:'#ece9e3'},
+        ticks:{
+          font:MF(8),color:'#908d85',maxTicksLimit:10,maxRotation:0,
+          callback:v=>fmtMsLabel(v),
+        },
+      },
+      y:{
+        title:{display:true,text:yLabel,font:MF(9),color:'#908d85'},
+        grid:{color:'#ece9e3'},ticks:{font:MF(9),color:'#908d85'},min:0,
+      },
+    },
+    elements:{line:{tension:0.15,stepped:stepped?'before':false},point:{radius:0,hitRadius:6}},
+  };
+}
+
+function xySeries(epochMs, values){
+  return epochMs.map((x,i)=>({x, y:values[i]}));
+}
+
+function initCharts(){
+  charts.gpu=new Chart(document.getElementById('c-gpu').getContext('2d'),{
+    type:'line',
+    data:{datasets:[
+      {label:'Ganglia GPU (measured)',data:[],borderColor:'#15803d',backgroundColor:'rgba(21,128,61,0.08)',borderWidth:2,pointRadius:0,fill:true},
+      {label:'Modeled GPU fleet',data:[],borderColor:'#1d4ed8',borderWidth:2,borderDash:[5,3],pointRadius:0,fill:false},
+    ]},
+    options:chartOpts('Power (kW)'),
+  });
+  for(const s of ['training','fine_tuning','inference']){
+    const col=MICRO_COL[s];
+    charts[s]=new Chart(document.getElementById('mc-'+s).getContext('2d'),{
+      type:'line',
+      data:{datasets:[{label:s+' kW',data:[],borderColor:col.line,backgroundColor:col.fill,borderWidth:1.3,pointRadius:0,fill:true}]},
+      options:chartOpts('Power (kW)', s==='inference'),
+    });
+  }
+}
+
+function updateChartScales(){
+  CHART_IDS.forEach(id=>{
+    if(!charts[id]) return;
+    charts[id].options.scales.x.max=durationMs;
+    charts[id].options.scales.x.min=0;
+  });
+}
+
+function rrect(ctx,x,y,w,h,r){
+  if(w<2*r){r=w/2;} if(h<2*r){r=h/2;}
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();
+}
+
+function fmtDur(h){
+  if(h<1) return `${Math.round(h*60)} min`;
+  if(h<24) return `${h.toFixed(1)} h`;
+  return `${(h/24).toFixed(1)} d`;
+}
+
+function openJobPanel(job){
+  selectedJobId=job.job_id;
+  document.getElementById('job-panel').classList.add('open');
+  document.getElementById('jp-title').textContent=String(job.job_id);
+  const stage=job.stage||'inference';
+  const rows=[
+    ['Stage', `<span class="stage-pill ${stage}">${job.stage_label||stage}</span>`],
+    ['Job ID', job.job_id],
+    ['Nodes', job.num_nodes],
+    ['GPUs (est.)', job.num_gpus],
+    ['Duration', fmtDur(job.duration_h||0)],
+    ['Start (UTC)', (job.start_iso||'').replace('T',' ').replace('+00:00','')],
+    ['End (UTC)', (job.end_iso||'').replace('T',' ').replace('+00:00','')],
+  ];
+  if(job.partition) rows.push(['Partition', job.partition]);
+  if(job.qos) rows.push(['QoS', job.qos]);
+  if(job.job_state) rows.push(['State', job.job_state]);
+  if(job.num_cpus!=null) rows.push(['CPUs', job.num_cpus]);
+  if(job.num_tasks!=null) rows.push(['Tasks', job.num_tasks]);
+  if(job.user_id) rows.push(['User', job.user_id]);
+  if(job.submit_iso) rows.push(['Submitted', job.submit_iso.replace('T',' ').replace('+00:00','')]);
+  rows.push(['Model stage rule', stageRuleHint(job)]);
+  document.getElementById('jp-body').innerHTML=rows.map(([l,v])=>
+    `<div class="jprow"><span class="jpl">${l}</span><span class="jpv">${v}</span></div>`
+  ).join('');
+  drawGantt();
+}
+
+function stageRuleHint(job){
+  const n=job.num_nodes||0, h=job.duration_h||0;
+  if(h>=1&&n>=16) return '≥1 h and ≥16 nodes → training';
+  if(h<0.25||n<4) return '<0.25 h or <4 nodes → inference';
+  return 'otherwise → fine-tuning';
+}
+
+function closeJobPanel(){
+  selectedJobId=null;
+  document.getElementById('job-panel').classList.remove('open');
+  drawGantt();
+}
+
+function ganttDisplayJobs(){
+  return [...ganttJobs].sort((a,b)=>a.start_ms-b.start_ms||b.num_nodes-a.num_nodes);
+}
+
+function drawGantt(){
+  const canvas=document.getElementById('tl-canvas');
+  const wrap=document.getElementById('gantt-wrap');
+  const ctx=canvas.getContext('2d');
+  const {rowH, padL, padR, padT, padB}=GANTT;
+  const jobs=ganttDisplayJobs();
+  const n=jobs.length||1;
+  const W=Math.max(800, wrap.clientWidth-2);
+  const H=padT+padB+n*rowH;
+  canvas.width=W; canvas.height=H;
+  canvas.style.height=H+'px';
+  ctx.fillStyle='#f4f3ef'; ctx.fillRect(0,0,W,H);
+
+  const plotW=W-padL-padR;
+  const msToX=ms=>padL+(ms/durationMs)*plotW;
+
+  ctx.strokeStyle='#dddad3'; ctx.lineWidth=1;
+  for(let i=0;i<=6;i++){
+    const x=padL+(i/6)*plotW;
+    ctx.beginPath();ctx.moveTo(x,padT);ctx.lineTo(x,H-padB);ctx.stroke();
+  }
+  ctx.fillStyle='#908d85'; ctx.font="9px 'IBM Plex Mono',monospace";
+  for(let i=0;i<=6;i++){
+    const ms=(i/6)*durationMs;
+    ctx.fillText(fmtMsLabel(ms), padL+(i/6)*plotW-28, H-4);
+  }
+
+  if(cursorMs!=null){
+    const cx=msToX(cursorMs);
+    ctx.save();
+    ctx.strokeStyle='rgba(29,78,216,0.75)';
+    ctx.lineWidth=1;
+    ctx.setLineDash([4,3]);
+    ctx.beginPath();
+    ctx.moveTo(cx, padT);
+    ctx.lineTo(cx, H-padB);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  canvasHits=[];
+  jobs.forEach((job,i)=>{
+    const y=padT+i*rowH;
+    const stage=job.stage||'inference';
+    const col=STAGE_COL[stage]||STAGE_COL.inference;
+    const x0=msToX(job.start_ms), x1=msToX(job.end_ms);
+    const bw=Math.max(x1-x0,2);
+    const y1=y+2, bh=rowH-4;
+    const sel=(selectedJobId===job.job_id);
+
+    ctx.fillStyle=col.fill;
+    rrect(ctx,x0,y1,bw,bh,3);ctx.fill();
+    ctx.strokeStyle=sel?col.stroke:col.stroke+'cc';
+    ctx.lineWidth=sel?2:1;
+    rrect(ctx,x0,y1,bw,bh,3);ctx.stroke();
+    ctx.fillStyle=col.stroke;
+    ctx.fillRect(x0,y1,4,bh);
+
+    ctx.fillStyle=col.text; ctx.font="8px 'IBM Plex Mono',monospace";
+    const label=`${job.num_nodes}n · ${String(job.job_id).slice(-10)}`;
+    if(bw>48){
+      ctx.save();ctx.beginPath();ctx.rect(x0+8,y1,bw-10,bh);ctx.clip();
+      ctx.fillText(label, x0+8, y1+bh-3);ctx.restore();
+    }
+
+    ctx.font="bold 8px 'IBM Plex Mono',monospace";
+    ctx.fillStyle=col.stroke;
+    ctx.fillText(STAGE_SHORT[stage]||'?', 6, y+11);
+    ctx.fillStyle=col.text;
+    ctx.font="8px 'IBM Plex Mono',monospace";
+    ctx.fillText(`${job.num_nodes}n`, 28, y+11);
+
+    canvasHits.push({job,x1:x0,x2:x0+bw,y1:y1-2,y2:y1+bh+2});
+  });
+}
+
+function bindGanttClicks(){
+  const canvas=document.getElementById('tl-canvas');
+  const wrap=document.getElementById('gantt-wrap');
+  if(canvas._bound) return;
+  canvas._bound=true;
+  canvas.addEventListener('mousemove', e=>{
+    const r=canvas.getBoundingClientRect();
+    const mx=e.clientX-r.left;
+    const plotW=canvas.width-GANTT.padL-GANTT.padR;
+    if(mx<GANTT.padL||mx>canvas.width-GANTT.padR){hideCursor();return;}
+    const ms=((mx-GANTT.padL)/plotW)*durationMs;
+    setCursorMs(ms);
+  });
+  canvas.addEventListener('mouseleave', hideCursor);
+  canvas.addEventListener('click', e=>{
+    const r=canvas.getBoundingClientRect();
+    const mx=e.clientX-r.left;
+    const my=e.clientY-r.top+wrap.scrollTop;
+    const hit=canvasHits.find(h=>mx>=h.x1&&mx<=h.x2&&my>=h.y1&&my<=h.y2);
+    if(hit) openJobPanel(hit.job);
+    else closeJobPanel();
+  });
+}
+
+function renderSlice(data){
+  sliceData=data;
+  const m=data.meta, g=data.gantt;
+  const epochMs=data.measured.epoch_ms;
+
+  windowT0Ms=Date.parse(m.window.t0);
+  ganttJobs=g.jobs;
+  durationMs=g.duration_ms||1;
+  updateChartScales();
+
+  document.getElementById('s-peak-gpu').textContent=(m.peak_ganglia_kw!=null?m.peak_ganglia_kw:'—')+' kW';
+  document.getElementById('s-mean-gpu').textContent=(m.mean_ganglia_kw!=null?m.mean_ganglia_kw:'—')+' kW';
+  document.getElementById('s-peak-model').textContent=(m.peak_fleet_kw!=null?m.peak_fleet_kw:'—')+' kW';
+  document.getElementById('s-r-gpu').textContent=m.r_fleet_vs_ganglia!=null?m.r_fleet_vs_ganglia:'—';
+  document.getElementById('s-jobs').textContent=m.job_count.toLocaleString();
+  document.getElementById('s-gantt').textContent=g.jobs.length;
+
+  document.getElementById('m-window').textContent=`${m.window.t0.slice(0,10)} → ${m.window.t1.slice(0,10)}`;
+  document.getElementById('m-month').textContent=`month ${m.year_month}`;
+  document.getElementById('m-points').textContent=`${m.measured_points} pts · ${m.grid_seconds}s`+
+    (m.ganglia_nodes?` · ${m.ganglia_nodes} nodes`:'');
+  const sc=m.stage_counts||{};
+  document.getElementById('m-stages').textContent=`stages: tr ${sc.training||0} · ft ${sc.fine_tuning||0} · inf ${sc.inference||0}`;
+
+  document.getElementById('gantt-meta').textContent=
+    `showing ${g.jobs.length} of ${g.total_jobs_in_window.toLocaleString()} · `+
+    `TR ${g.by_stage?.training??0} · FT ${g.by_stage?.fine_tuning??0} · INF ${g.by_stage?.inference??0}`;
+
+  charts.gpu.data.datasets[0].data=xySeries(epochMs, data.measured.kw);
+  charts.gpu.data.datasets[1].data=xySeries(epochMs, data.modeled.fleet_kw);
+  charts.gpu.update('none');
+
+  for(const s of ['training','fine_tuning','inference']){
+    charts[s].data.datasets[0].data=xySeries(epochMs, data.modeled.by_stage[s]);
+    charts[s].update('none');
+    const peak=Math.max(...data.modeled.by_stage[s],0);
+    document.getElementById('pill-'+s).textContent=peak>0?`peak ${peak.toFixed(0)} kW`:'no jobs';
+  }
+
+  hideCursor();
+  drawGantt();
+  bindGanttClicks();
+}
+
+async function loadSlice(rebuild=false){
+  setStatus('loading', rebuild?'rebuilding slice…':'loading slice…');
+  document.getElementById('btn-rebuild').disabled=true;
+  try{
+    const url=rebuild?'/api/slice/rebuild':'/api/slice';
+    const r=rebuild?await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}):await fetch(url);
+    const data=await r.json();
+    if(!r.ok)throw new Error(data.error||r.statusText);
+    renderSlice(data);
+    setStatus('ok', `loaded · ${data.meta.measured_points} pts`);
+  }catch(e){
+    setStatus('error', e.message);
+  }finally{
+    document.getElementById('btn-rebuild').disabled=false;
+  }
+}
+
+document.getElementById('btn-rebuild').addEventListener('click',()=>loadSlice(true));
+document.getElementById('jp-close').addEventListener('click', closeJobPanel);
+window.addEventListener('resize',()=>{if(sliceData){updateChartScales();drawGantt();}});
+
+initCharts();
+loadSlice();
+</script>
+</body>
+</html>

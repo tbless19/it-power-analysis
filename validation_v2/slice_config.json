@@ -1,0 +1,16 @@
+{
+  "_comment": "Default 1-day M100 slice for Schedule Explorer (fast page load).",
+  "year_month": "22-03",
+  "t0": "2022-03-20T00:00:00Z",
+  "t1": "2022-03-21T00:00:00Z",
+  "grid_seconds": 300,
+  "substep_seconds": 30,
+  "measured_max_points": 500,
+  "gantt_min_nodes": 16,
+  "gantt_inference_min_nodes": 1,
+  "gantt_per_stage_max": 40,
+  "gantt_max_jobs": 120,
+  "hw_type": "V100",
+  "seed": 12345,
+  "draws": 1
+}

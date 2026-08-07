@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>IT Power Validation — M100 ExaData</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#f4f3ef; --surface:#ffffff; --surface-alt:#f9f8f5;
+  --border:#dddad3; --border-strong:#c5c1b8;
+  --text:#1a1916; --text2:#5c5a54; --muted:#908d85;
+  --accent:#1d4ed8; --accent-dim:#dbeafe;
+  --green:#15803d; --red:#b91c1c; --amber:#b45309;
+  --purple:#7c3aed; --teal:#0d9488;
+  --mono:'IBM Plex Mono',monospace; --sans:'IBM Plex Sans',system-ui,sans-serif; --r:5px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13px;min-height:100vh;display:flex;flex-direction:column;}
+
+/* Top bar */
+#topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 16px;height:46px;display:flex;align-items:center;gap:12px;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,.07);}
+#topbar h1{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--accent);letter-spacing:.04em;}
+#topbar .sub{font-family:var(--mono);font-size:9px;color:var(--muted);background:var(--surface-alt);border:1px solid var(--border);border-radius:999px;padding:2px 10px;}
+.spacer{flex:1;}
+#status-pill{font-family:var(--mono);font-size:9px;padding:3px 12px;border-radius:999px;border:1px solid var(--border);color:var(--muted);transition:all .2s;}
+#status-pill.loading{border-color:var(--accent);color:var(--accent);background:var(--accent-dim);}
+#status-pill.error{border-color:var(--red);color:var(--red);background:#fee2e2;}
+#status-pill.ok{border-color:var(--green);color:var(--green);background:#dcfce7;}
+
+/* Stats bar */
+#sbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 16px;height:40px;display:flex;align-items:center;gap:32px;flex-shrink:0;}
+.sv{display:flex;flex-direction:column;gap:1px;}
+.sl{font-family:var(--mono);font-size:8px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);}
+.sn{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--text);}
+.sn.real{color:var(--green);}
+.sn.sim{color:var(--accent);}
+.sn.err{color:var(--red);}
+.sn.warn{color:var(--amber);}
+
+/* Layout */
+#main{display:flex;flex:1;gap:0;min-height:0;}
+#sidebar{width:260px;flex-shrink:0;border-right:1px solid var(--border);overflow-y:auto;background:var(--surface);display:flex;flex-direction:column;}
+#content{flex:1;display:flex;flex-direction:column;overflow:auto;padding:16px;gap:16px;}
+
+/* Sidebar */
+.sec{border-bottom:1px solid var(--border);}
+.sh{padding:7px 12px;font-family:var(--mono);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);background:var(--surface-alt);display:flex;align-items:center;justify-content:space-between;}
+.sb{padding:10px 12px;display:flex;flex-direction:column;gap:8px;}
+.f{display:flex;flex-direction:column;gap:3px;}
+.f label{font-family:var(--mono);font-size:8px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);}
+.f input,.f select{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-family:var(--mono);font-size:11px;padding:5px 8px;outline:none;transition:border-color .15s;width:100%;}
+.f input:focus,.f select:focus{border-color:var(--accent);}
+.f input[type="file"]{padding:3px 6px;font-size:10px;cursor:pointer;}
+.fr{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+.file-hint{font-family:var(--mono);font-size:8px;color:var(--muted);line-height:1.4;margin-top:2px;}
+.run-btn{margin:10px 12px;padding:8px 12px;background:var(--accent);border:none;border-radius:var(--r);color:#fff;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.04em;transition:opacity .15s;}
+.run-btn:hover{opacity:.88;}
+.run-btn:disabled{opacity:.45;cursor:not-allowed;}
+
+/* Inventory grid */
+.inv-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;}
+.inv-item{display:flex;flex-direction:column;gap:2px;}
+.inv-item label{font-family:var(--mono);font-size:7px;text-transform:uppercase;color:var(--muted);}
+.inv-item input{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-family:var(--mono);font-size:10px;padding:3px 6px;width:100%;}
+
+/* Chart cards */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+.card-header{padding:8px 14px;border-bottom:1px solid var(--border);background:var(--surface-alt);display:flex;align-items:center;gap:10px;}
+.card-title{font-family:var(--mono);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);}
+.card-sub{font-family:var(--mono);font-size:8px;color:var(--muted);}
+.card-body{padding:12px;position:relative;}
+.chart-wrap{position:relative;width:100%;}
+
+/* Legend dots */
+.ldot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:middle;}
+
+/* Error / info banners */
+.banner{font-family:var(--mono);font-size:10px;padding:8px 12px;border-radius:var(--r);border:1px solid;margin-bottom:8px;line-height:1.5;}
+.banner.info{border-color:var(--accent);background:var(--accent-dim);color:var(--accent);}
+.banner.warn{border-color:var(--amber);background:#fef3c7;color:var(--amber);}
+.banner.err{border-color:var(--red);background:#fee2e2;color:var(--red);}
+
+/* Metrics table */
+.metrics-table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:10px;}
+.metrics-table th{text-align:left;padding:5px 8px;border-bottom:2px solid var(--border);color:var(--muted);font-size:8px;text-transform:uppercase;letter-spacing:.06em;}
+.metrics-table td{padding:5px 8px;border-bottom:1px solid var(--border);color:var(--text);}
+.metrics-table tr:last-child td{border-bottom:none;}
+.metrics-table .val-real{color:var(--green);font-weight:600;}
+.metrics-table .val-sim{color:var(--accent);font-weight:600;}
+.metrics-table .val-err{color:var(--red);}
+
+/* Diff badge */
+.diff-badge{display:inline-block;padding:1px 6px;border-radius:999px;font-size:8px;font-weight:700;}
+.diff-badge.good{background:#dcfce7;color:var(--green);}
+.diff-badge.ok{background:#fef3c7;color:var(--amber);}
+.diff-badge.bad{background:#fee2e2;color:var(--red);}
+
+/* Stage breakdown */
+.stage-row{display:flex;align-items:center;gap:8px;padding:3px 0;font-family:var(--mono);font-size:9px;}
+.stage-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+
+/* Residual chart */
+#residual-section{display:none;}
+
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:2px;}
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <h1>IT POWER VALIDATION</h1>
+  <span class="sub">M100 ExaData · Marconi100</span>
+  <span class="sub" style="font-size:8px">P(t) = Σk Nk·Pk_max [ηk(t)·Σm(um·αm(t)) + (1−ηk)·ρk]</span>
+  <div class="spacer"></div>
+  <span id="status-pill">ready</span>
+</div>
+
+<div id="sbar">
+  <div class="sv"><div class="sl">Real Peak (kW)</div><div class="sn real" id="s-real-peak">—</div></div>
+  <div class="sv"><div class="sl">Real Avg (kW)</div><div class="sn real" id="s-real-avg">—</div></div>
+  <div class="sv"><div class="sl">Sim Peak (kW)</div><div class="sn sim" id="s-sim-peak">—</div></div>
+  <div class="sv"><div class="sl">Sim Avg (kW)</div><div class="sn sim" id="s-sim-avg">—</div></div>
+  <div class="sv"><div class="sl">RMSE (kW)</div><div class="sn err" id="s-rmse">—</div></div>
+  <div class="sv"><div class="sl">MAPE (%)</div><div class="sn warn" id="s-mape">—</div></div>
+  <div class="sv"><div class="sl">Tasks</div><div class="sn" id="s-tasks">—</div></div>
+</div>
+
+<div id="main">
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div class="sec">
+      <div class="sh">Data Files</div>
+      <div class="sb">
+        <div class="f">
+          <label>Logics Parquet <span style="color:var(--green)">(Real IT Power)</span></label>
+          <input type="file" id="f-logics" accept=".parquet">
+          <div class="file-hint">logics_pub/part-000.parquet — provides Tot_ict (facility IT kW)</div>
+        </div>
+        <div class="f">
+          <label>Job Table Parquet <span style="color:var(--accent)">(Simulation Input)</span></label>
+          <input type="file" id="f-jobs" accept=".parquet">
+          <div class="file-hint">job_table/part-000.parquet — SLURM jobs drive the simulation</div>
+        </div>
+        <div class="f">
+          <label>SLURM Parquet <span style="color:var(--purple)">(Utilisation Overlay)</span></label>
+          <input type="file" id="f-slurm" accept=".parquet">
+          <div class="file-hint">slurm_pub/part-000.parquet — CPU/GPU utilisation overlay</div>
+        </div>
+        <div class="f">
+          <label>Ganglia Parquet <span style="color:var(--teal)">(Node GPU Power)</span></label>
+          <input type="file" id="f-ganglia" accept=".parquet">
+          <div class="file-hint">ganglia_pub/part-000.parquet — per-node GPU power (W→kW sum)</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sh">Time Window (optional)</div>
+      <div class="sb">
+        <div class="f"><label>Start (UTC ISO)</label><input type="text" id="t0" placeholder="2022-03-15T00:00:00Z"></div>
+        <div class="f"><label>End (UTC ISO)</label><input type="text" id="t1" placeholder="2022-03-16T00:00:00Z"></div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sh">Simulation Settings</div>
+      <div class="sb">
+        <div class="f">
+          <label>Hardware Type</label>
+          <select id="hw-type">
+            <option value="V100" selected>V100 (M100 default)</option>
+            <option value="H100">H100</option>
+            <option value="A100">A100</option>
+            <option value="CPU_HPC">CPU HPC</option>
+            <option value="CPU_STD">CPU STD</option>
+          </select>
+        </div>
+        <div class="f"><label>Network (kW)</label><input type="number" id="infra-net" value="0" min="0" step="0.1"></div>
+        <div class="f"><label>Storage (kW)</label><input type="number" id="infra-stor" value="0" min="0" step="0.1"></div>
+        <div class="f"><label>Misc IT (kW)</label><input type="number" id="infra-misc" value="0" min="0" step="0.1"></div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sh">Hardware Inventory</div>
+      <div class="sb">
+        <div class="inv-grid" id="inv-fields">Loading…</div>
+      </div>
+    </div>
+
+    <button class="run-btn" id="run-btn" onclick="runValidation()">▶ Run Validation</button>
+  </div>
+
+  <!-- Main content -->
+  <div id="content">
+    <!-- Welcome banner -->
+    <div class="banner info" id="welcome-banner">
+      Upload Parquet files from the M100 ExaData cleaned bundle, then click <strong>Run Validation</strong>.
+      The <strong>logics_pub</strong> file provides the real IT power reference (Tot_ict).
+      The <strong>job_table</strong> file drives the simulation. All files are optional — upload any combination.
+    </div>
+
+    <!-- Error banner -->
+    <div class="banner err" id="error-banner" style="display:none"></div>
+
+    <!-- Main comparison chart -->
+    <div class="card" id="main-chart-card" style="display:none">
+      <div class="card-header">
+        <span class="card-title">IT Power — Real vs Simulated</span>
+        <span class="card-sub" id="main-chart-sub"></span>
+        <div class="spacer"></div>
+        <span><span class="ldot" style="background:var(--green)"></span><span style="font-family:var(--mono);font-size:9px;color:var(--text2)">Real (Tot_ict)</span></span>
+        &nbsp;
+        <span><span class="ldot" style="background:var(--accent)"></span><span style="font-family:var(--mono);font-size:9px;color:var(--text2)">Simulated</span></span>
+        &nbsp;
+        <span><span class="ldot" style="background:var(--teal)"></span><span style="font-family:var(--mono);font-size:9px;color:var(--text2)">Ganglia GPU</span></span>
+      </div>
+      <div class="card-body">
+        <div class="chart-wrap" style="height:320px"><canvas id="main-chart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- SLURM utilisation chart -->
+    <div class="card" id="slurm-chart-card" style="display:none">
+      <div class="card-header">
+        <span class="card-title">Cluster Utilisation (SLURM)</span>
+        <span class="card-sub">CPU · GPU · Memory utilisation from slurm_pub</span>
+        <div class="spacer"></div>
+        <span><span class="ldot" style="background:var(--amber)"></span><span style="font-family:var(--mono);font-size:9px;color:var(--text2)">CPU util</span></span>
+        &nbsp;
+        <span><span class="ldot" style="background:var(--purple)"></span><span style="font-family:var(--mono);font-size:9px;color:var(--text2)">GPU util</span></span>
+      </div>
+      <div class="card-body">
+        <div class="chart-wrap" style="height:180px"><canvas id="slurm-chart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Residual / error chart -->
+    <div class="card" id="residual-section">
+      <div class="card-header">
+        <span class="card-title">Residuals — (Simulated − Real) kW</span>
+        <span class="card-sub">Positive = model over-predicts; negative = model under-predicts</span>
+      </div>
+      <div class="card-body">
+        <div class="chart-wrap" style="height:160px"><canvas id="residual-chart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Metrics table -->
+    <div class="card" id="metrics-card" style="display:none">
+      <div class="card-header">
+        <span class="card-title">Validation Metrics</span>
+        <span class="card-sub" id="metrics-sub"></span>
+      </div>
+      <div class="card-body">
+        <table class="metrics-table" id="metrics-table">
+          <thead><tr><th>Metric</th><th>Real Data</th><th>Simulated</th><th>Difference</th></tr></thead>
+          <tbody id="metrics-tbody"></tbody>
+        </table>
+        <div style="margin-top:14px;display:flex;gap:16px;flex-wrap:wrap;" id="stage-breakdown"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const MF = sz => ({family:"'IBM Plex Mono',monospace", size: sz});
+let CFG = null;
+let mainChart = null, slurmChart = null, residualChart = null;
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+async function init() {
+  try {
+    const r = await fetch('/api/config');
+    CFG = await r.json();
+    buildInv();
+  } catch(e) {
+    setStatus('error', 'Cannot reach server');
+  }
+}
+
+
+function buildInv() {
+  if (!CFG) return;
+  const grid = document.getElementById('inv-fields');
+  grid.innerHTML = Object.entries(CFG.hardware).map(([k, h]) =>
+    `<div class="inv-item"><label>${k}</label>
+     <input id="inv-${k}" type="number" value="${CFG.defaults.inventory[k] ?? 0}" min="0"></div>`
+  ).join('');
+}
+
+function getInventory() {
+  const inv = {};
+  if (!CFG) return inv;
+  for (const k of Object.keys(CFG.hardware)) {
+    inv[k] = parseInt(document.getElementById('inv-' + k)?.value) || 0;
+  }
+  return inv;
+}
+
+function setStatus(type, msg) {
+  const el = document.getElementById('status-pill');
+  el.className = type;
+  el.textContent = msg;
+}
+
+// ── Run validation ────────────────────────────────────────────────────────────
+async function runValidation() {
+  const btn = document.getElementById('run-btn');
+  btn.disabled = true;
+  setStatus('loading', 'loading…');
+  document.getElementById('welcome-banner').style.display = 'none';
+  document.getElementById('error-banner').style.display = 'none';
+
+  const fd = new FormData();
+  const logicsFile  = document.getElementById('f-logics').files[0];
+  const jobsFile    = document.getElementById('f-jobs').files[0];
+  const slurmFile   = document.getElementById('f-slurm').files[0];
+  const gangliaFile = document.getElementById('f-ganglia').files[0];
+
+  if (!logicsFile && !jobsFile && !slurmFile && !gangliaFile) {
+    showError('Please upload at least one Parquet file.');
+    btn.disabled = false;
+    setStatus('error', 'no files');
+    return;
+  }
+
+  if (logicsFile)  fd.append('logics_file',  logicsFile);
+  if (jobsFile)    fd.append('jobs_file',    jobsFile);
+  if (slurmFile)   fd.append('slurm_file',   slurmFile);
+  if (gangliaFile) fd.append('ganglia_file', gangliaFile);
+
+  fd.append('hw_type',   document.getElementById('hw-type').value);
+  fd.append('t0',        document.getElementById('t0').value);
+  fd.append('t1',        document.getElementById('t1').value);
+  fd.append('inventory', JSON.stringify(getInventory()));
+  fd.append('infra', JSON.stringify({
+    network_kw: parseFloat(document.getElementById('infra-net').value)  || 0,
+    storage_kw: parseFloat(document.getElementById('infra-stor').value) || 0,
+    misc_kw:    parseFloat(document.getElementById('infra-misc').value) || 0,
+  }));
+
+  try {
+    const resp = await fetch('/api/validate', { method: 'POST', body: fd });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+
+    if (data.errors && data.errors.length > 0) {
+      showError(data.errors.join('\n'));
+    }
+
+    renderResults(data);
+    setStatus('ok', 'done');
+  } catch(e) {
+    showError('Request failed: ' + e.message);
+    setStatus('error', e.message);
+  }
+  btn.disabled = false;
+}
+
+function showError(msg) {
+  const el = document.getElementById('error-banner');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function renderResults(data) {
+  const real = data.real;       // [{ts_ms, kw, label}]
+  const sim  = data.simulated;  // [{ts_ms, label, tasks_kw, total_kw, base_kw}]
+  const slurm = data.slurm;     // {metric: [{ts_ms, val}]}
+  const ganglia = data.ganglia; // [{ts_ms, kw}]
+
+  // ── Main comparison chart ─────────────────────────────────────────────────
+  if (real || sim) {
+    document.getElementById('main-chart-card').style.display = 'block';
+
+    // Build unified time axis (minutes)
+    const allMs = new Set();
+    if (real)    real.forEach(p => allMs.add(p.ts_ms));
+    if (sim)     sim.forEach(p => allMs.add(p.ts_ms));
+    if (ganglia) ganglia.forEach(p => allMs.add(p.ts_ms));
+    const sortedMs = [...allMs].sort((a, b) => a - b);
+
+    // Downsample to max 1000 pts for performance
+    const MAX_PTS = 1000;
+    const skip = Math.max(1, Math.ceil(sortedMs.length / MAX_PTS));
+    const sampledMs = sortedMs.filter((_, i) => i % skip === 0);
+
+    const labels = sampledMs.map(ms => fmtElapsed(ms));
+
+    // Interpolate series onto sampled time axis
+    const realKw    = real    ? interpolate(real.map(p => [p.ts_ms, p.kw]),    sampledMs) : null;
+    const simKw     = sim     ? interpolate(sim.map(p => [p.ts_ms, p.total_kw]), sampledMs) : null;
+    const gangliaKw = ganglia ? interpolate(ganglia.map(p => [p.ts_ms, p.kw]), sampledMs) : null;
+
+    const datasets = [];
+    if (realKw) datasets.push({
+      label: 'Real IT Power — Tot_ict (kW)',
+      data: realKw, borderColor: '#15803d', backgroundColor: 'rgba(21,128,61,0.06)',
+      borderWidth: 2, pointRadius: 0, tension: 0.2, fill: true, order: 1,
+    });
+    if (simKw) datasets.push({
+      label: 'Simulated IT Power (kW)',
+      data: simKw, borderColor: '#1d4ed8', backgroundColor: 'rgba(29,78,216,0.06)',
+      borderWidth: 2, pointRadius: 0, tension: 0.2, fill: true, borderDash: [5, 3], order: 2,
+    });
+    if (gangliaKw) datasets.push({
+      label: 'Ganglia GPU Power (kW)',
+      data: gangliaKw, borderColor: '#0d9488', backgroundColor: 'rgba(13,148,136,0.04)',
+      borderWidth: 1.5, pointRadius: 0, tension: 0.2, fill: false, borderDash: [3, 2], order: 3,
+    });
+
+    if (mainChart) mainChart.destroy();
+    mainChart = new Chart(document.getElementById('main-chart').getContext('2d'), {
+      type: 'line',
+      data: { labels, datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: true, labels: { color: '#908d85', font: MF(9), boxWidth: 12, padding: 10 }},
+          tooltip: {
+            titleFont: MF(9), bodyFont: MF(10),
+            callbacks: { label: c => `${c.dataset.label}: ${c.parsed.y != null ? c.parsed.y.toFixed(2) + ' kW' : 'N/A'}` }
+          },
+        },
+        scales: {
+          x: {
+            title: { display: true, text: 'Elapsed time', font: MF(9), color: '#908d85' },
+            grid: { color: '#ece9e3' }, ticks: { font: MF(9), color: '#908d85', maxTicksLimit: 16, maxRotation: 0 },
+          },
+          y: {
+            title: { display: true, text: 'IT Power (kW)', font: MF(9), color: '#908d85' },
+            grid: { color: '#ece9e3' }, ticks: { font: MF(9), color: '#908d85' }, min: 0,
+          },
+        },
+      },
+    });
+
+    // Sub-label
+    const parts = [];
+    if (real) parts.push(`${real.length} real pts`);
+    if (sim)  parts.push(`${sim.length} sim pts`);
+    if (data.meta?.synthetic) parts.push('synthetic tasks (no job file)');
+    document.getElementById('main-chart-sub').textContent = parts.join(' · ');
+
+    // ── Residual chart ──────────────────────────────────────────────────────
+    if (realKw && simKw) {
+      const residuals = sampledMs.map((_, i) => {
+        const r = realKw[i], s = simKw[i];
+        return (r != null && s != null) ? parseFloat((s - r).toFixed(3)) : null;
+      });
+      document.getElementById('residual-section').style.display = 'block';
+      if (residualChart) residualChart.destroy();
+      residualChart = new Chart(document.getElementById('residual-chart').getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Residual (Sim − Real) kW',
+            data: residuals,
+            backgroundColor: residuals.map(v => v == null ? 'transparent' : v >= 0 ? 'rgba(29,78,216,0.5)' : 'rgba(185,28,28,0.5)'),
+            borderColor: residuals.map(v => v == null ? 'transparent' : v >= 0 ? '#1d4ed8' : '#b91c1c'),
+            borderWidth: 0.5,
+          }],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false, animation: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: { titleFont: MF(9), bodyFont: MF(10),
+              callbacks: { label: c => `Residual: ${c.parsed.y != null ? c.parsed.y.toFixed(2) + ' kW' : 'N/A'}` }},
+          },
+          scales: {
+            x: { ticks: { font: MF(8), color: '#908d85', maxTicksLimit: 14, maxRotation: 0 }, grid: { color: '#ece9e3' }},
+            y: { title: { display: true, text: 'Δ kW', font: MF(9), color: '#908d85' },
+                 grid: { color: '#ece9e3' }, ticks: { font: MF(9), color: '#908d85' }},
+          },
+        },
+      });
+    }
+  }
+
+  // ── SLURM chart ───────────────────────────────────────────────────────────
+  if (slurm && Object.keys(slurm).length > 0) {
+    document.getElementById('slurm-chart-card').style.display = 'block';
+    const cpuSeries = slurm['cluster_cpu_util'] || slurm['s21.cluster_cpu_util'] || null;
+    const gpuSeries = slurm['s21.cluster_gpu_util'] || null;
+    const memSeries = slurm['s21.cluster_mem_util'] || null;
+
+    const allMs = new Set();
+    [cpuSeries, gpuSeries, memSeries].forEach(s => s && s.forEach(p => allMs.add(p.ts_ms)));
+    const sortedMs = [...allMs].sort((a, b) => a - b);
+    const skip = Math.max(1, Math.ceil(sortedMs.length / 800));
+    const sampledMs = sortedMs.filter((_, i) => i % skip === 0);
+    const labels = sampledMs.map(ms => fmtElapsed(ms));
+
+    const slurmDatasets = [];
+    if (cpuSeries) slurmDatasets.push({
+      label: 'CPU Utilisation (%)',
+      data: interpolate(cpuSeries.map(p => [p.ts_ms, p.val * 100]), sampledMs),
+      borderColor: '#b45309', backgroundColor: 'rgba(180,83,9,0.06)',
+      borderWidth: 1.5, pointRadius: 0, tension: 0.2, fill: false,
+    });
+    if (gpuSeries) slurmDatasets.push({
+      label: 'GPU Utilisation (%)',
+      data: interpolate(gpuSeries.map(p => [p.ts_ms, p.val * 100]), sampledMs),
+      borderColor: '#7c3aed', backgroundColor: 'rgba(124,58,237,0.06)',
+      borderWidth: 1.5, pointRadius: 0, tension: 0.2, fill: false,
+    });
+    if (memSeries) slurmDatasets.push({
+      label: 'Memory Utilisation (%)',
+      data: interpolate(memSeries.map(p => [p.ts_ms, p.val * 100]), sampledMs),
+      borderColor: '#0d9488', backgroundColor: 'rgba(13,148,136,0.04)',
+      borderWidth: 1, pointRadius: 0, tension: 0.2, fill: false, borderDash: [3, 2],
+    });
+
+    if (slurmChart) slurmChart.destroy();
+    slurmChart = new Chart(document.getElementById('slurm-chart').getContext('2d'), {
+      type: 'line',
+      data: { labels, datasets: slurmDatasets },
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: true, labels: { color: '#908d85', font: MF(9), boxWidth: 10, padding: 8 }},
+          tooltip: { titleFont: MF(9), bodyFont: MF(10),
+            callbacks: { label: c => `${c.dataset.label}: ${c.parsed.y != null ? c.parsed.y.toFixed(1) + '%' : 'N/A'}` }},
+        },
+        scales: {
+          x: { ticks: { font: MF(9), color: '#908d85', maxTicksLimit: 14, maxRotation: 0 }, grid: { color: '#ece9e3' }},
+          y: { title: { display: true, text: 'Utilisation (%)', font: MF(9), color: '#908d85' },
+               grid: { color: '#ece9e3' }, ticks: { font: MF(9), color: '#908d85' }, min: 0, max: 100 },
+        },
+      },
+    });
+  }
+
+  // ── Stats bar + metrics table ─────────────────────────────────────────────
+  // (real and sim already declared above in this function scope)
+
+  let realPeak = null, realAvg = null;
+  if (real && real.length) {
+    const vals = real.map(p => p.kw);
+    realPeak = Math.max(...vals);
+    realAvg  = vals.reduce((a, b) => a + b, 0) / vals.length;
+  }
+
+  let simPeak = null, simAvg = null;
+  if (sim && sim.length) {
+    const vals = sim.map(p => p.total_kw);
+    simPeak = Math.max(...vals);
+    simAvg  = vals.reduce((a, b) => a + b, 0) / vals.length;
+  }
+
+  // Compute RMSE / MAPE on aligned series
+  let rmse = null, mape = null;
+  if (real && sim) {
+    const realMap = new Map(real.map(p => [p.ts_ms, p.kw]));
+    const simMap  = new Map(sim.map(p => [p.ts_ms, p.total_kw]));
+    const commonMs = [...realMap.keys()].filter(ms => simMap.has(ms));
+    if (commonMs.length > 0) {
+      let ssq = 0, ape = 0, n = 0;
+      for (const ms of commonMs) {
+        const r = realMap.get(ms), s = simMap.get(ms);
+        if (r != null && s != null && r > 0) {
+          ssq += (s - r) ** 2;
+          ape += Math.abs((s - r) / r);
+          n++;
+        }
+      }
+      if (n > 0) {
+        rmse = Math.sqrt(ssq / n);
+        mape = (ape / n) * 100;
+      }
+    }
+  }
+
+  // Update stats bar
+  document.getElementById('s-real-peak').textContent = realPeak != null ? realPeak.toFixed(1) : '—';
+  document.getElementById('s-real-avg').textContent  = realAvg  != null ? realAvg.toFixed(1)  : '—';
+  document.getElementById('s-sim-peak').textContent  = simPeak  != null ? simPeak.toFixed(1)  : '—';
+  document.getElementById('s-sim-avg').textContent   = simAvg   != null ? simAvg.toFixed(1)   : '—';
+  document.getElementById('s-rmse').textContent      = rmse     != null ? rmse.toFixed(2)      : '—';
+  document.getElementById('s-mape').textContent      = mape     != null ? mape.toFixed(1) + '%': '—';
+  document.getElementById('s-tasks').textContent     = data.meta?.task_count ?? (data.stats?.task_count ?? '—');
+
+  // Metrics table
+  document.getElementById('metrics-card').style.display = 'block';
+  const tbody = document.getElementById('metrics-tbody');
+  const rows = [
+    ['Peak IT Power (kW)', realPeak, simPeak],
+    ['Average IT Power (kW)', realAvg, simAvg],
+    ['RMSE (kW)', null, null, rmse != null ? rmse.toFixed(3) : '—', ''],
+    ['MAPE (%)', null, null, mape != null ? mape.toFixed(2) + '%' : '—', ''],
+  ];
+
+  tbody.innerHTML = rows.map(([name, r, s, override, overrideDiff]) => {
+    const rv = r != null ? r.toFixed(2) : '—';
+    const sv = s != null ? s.toFixed(2) : '—';
+    let diff = '—', badge = '';
+    if (override !== undefined) {
+      diff = override;
+    } else if (r != null && s != null) {
+      const pct = ((s - r) / r * 100);
+      diff = (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%';
+      const abs = Math.abs(pct);
+      badge = abs < 10 ? 'good' : abs < 25 ? 'ok' : 'bad';
+    }
+    return `<tr>
+      <td>${name}</td>
+      <td class="val-real">${rv}</td>
+      <td class="val-sim">${sv}</td>
+      <td>${diff !== '—' ? `<span class="diff-badge ${badge}">${diff}</span>` : '—'}</td>
+    </tr>`;
+  }).join('');
+
+  // Stage breakdown
+  const stageBreakdown = document.getElementById('stage-breakdown');
+  const stageMeta = data.meta?.stage_counts;
+  if (stageMeta) {
+    const STAGE_COLORS = { training: '#b91c1c', fine_tuning: '#b45309', inference: '#1d4ed8' };
+    stageBreakdown.innerHTML = '<div style="font-family:var(--mono);font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;width:100%;margin-bottom:4px">Stage breakdown from jobs</div>' +
+      Object.entries(stageMeta).map(([s, n]) =>
+        `<div class="stage-row"><span class="stage-dot" style="background:${STAGE_COLORS[s] || '#888'}"></span>
+         <span style="color:var(--text2)">${s.replace('_', '-')}</span>
+         <span style="color:var(--muted);margin-left:auto">${n} task${n !== 1 ? 's' : ''}</span></div>`
+      ).join('');
+  } else {
+    stageBreakdown.innerHTML = '';
+  }
+
+  const metricsSub = [];
+  if (data.meta?.job_count) metricsSub.push(`${data.meta.job_count} jobs loaded`);
+  if (data.meta?.synthetic) metricsSub.push('synthetic simulation (no job file)');
+  document.getElementById('metrics-sub').textContent = metricsSub.join(' · ');
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function fmtElapsed(ms) {
+  if (ms === 0)    return '0s';
+  if (ms < 1000)   return ms + 'ms';
+  const s = ms / 1000;
+  if (s < 10)      return s.toFixed(1) + 's';
+  if (s < 60)      return s.toFixed(0) + 's';
+  if (s < 3600)    return (s / 60).toFixed(0) + 'min';
+  return (s / 3600).toFixed(1) + 'h';
+}
+
+/**
+ * Linear interpolation of a sparse series [[ts_ms, val], ...] onto target timestamps.
+ * Returns null for gaps outside the source range.
+ */
+function interpolate(series, targetMs) {
+  if (!series || series.length === 0) return targetMs.map(() => null);
+  // Sort source
+  const src = [...series].sort((a, b) => a[0] - b[0]);
+  return targetMs.map(t => {
+    if (t < src[0][0] || t > src[src.length - 1][0]) return null;
+    // Binary search for surrounding points
+    let lo = 0, hi = src.length - 1;
+    while (lo < hi - 1) {
+      const mid = (lo + hi) >> 1;
+      if (src[mid][0] <= t) lo = mid; else hi = mid;
+    }
+    if (src[lo][0] === t) return src[lo][1];
+    if (src[hi][0] === t) return src[hi][1];
+    const frac = (t - src[lo][0]) / (src[hi][0] - src[lo][0]);
+    return parseFloat((src[lo][1] + frac * (src[hi][1] - src[lo][1])).toFixed(4));
+  });
+}
+
+// Ensure init runs after DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
+</script>
+</body>
+</html>

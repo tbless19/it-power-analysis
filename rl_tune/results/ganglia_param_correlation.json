@@ -1,0 +1,811 @@
+{
+  "window": {
+    "t0": "2022-03-20T00:00:00Z",
+    "t1": "2022-03-21T00:00:00Z"
+  },
+  "year_month": "22-03",
+  "measured_source": "ganglia_pub Gpu*_power_usage sum",
+  "n_points": 288,
+  "ganglia_nodes": 944,
+  "inventory": {
+    "V100": 3780
+  },
+  "ganglia_mean_kw": 449.68,
+  "ganglia_std_kw": 55.519,
+  "modeled_mean_kw": 411.013,
+  "r_current_model_vs_ganglia": 0.2388,
+  "oversubscribed_fraction": 0.9722,
+  "mean_requested_gpus": 5502.8,
+  "defaults_used": {
+    "training.u_plateau": 0.6,
+    "fine_tuning.u_plateau": 0.68,
+    "inference.u_eff": 0.32,
+    "rho": 0.117
+  },
+  "mean_field_default": {
+    "pearson_r": 0.3152,
+    "mape_pct": 11.006,
+    "bias_kw": 20.059
+  },
+  "features_vs_ganglia": [
+    {
+      "feature": "modeled_fleet_kw",
+      "label": "Current modeled fleet (not a knob)",
+      "pearson_r": 0.2388,
+      "spearman_r": 0.3941,
+      "mean": 411.013,
+      "std": 32.473
+    },
+    {
+      "feature": "alloc_gpus",
+      "label": "Allocated / requested GPUs (schedule, not a knob)",
+      "pearson_r": 0.6489,
+      "spearman_r": 0.7599,
+      "mean": 5502.962,
+      "std": 664.086
+    },
+    {
+      "feature": "n_req_training",
+      "label": "Requested training GPUs (training.u_plateau)",
+      "pearson_r": -0.5877,
+      "spearman_r": -0.5892,
+      "mean": 439.0,
+      "std": 223.278
+    },
+    {
+      "feature": "n_req_fine_tuning",
+      "label": "Requested fine-tuning GPUs (fine_tuning.u_plateau)",
+      "pearson_r": 0.766,
+      "spearman_r": 0.7925,
+      "mean": 1097.278,
+      "std": 415.13
+    },
+    {
+      "feature": "n_req_inference",
+      "label": "Requested inference GPUs (inference.u_eff)",
+      "pearson_r": 0.3182,
+      "spearman_r": 0.3048,
+      "mean": 3966.514,
+      "std": 735.93
+    },
+    {
+      "feature": "n_eff_training",
+      "label": "Capped training GPUs",
+      "pearson_r": -0.6173,
+      "spearman_r": -0.6048,
+      "mean": 316.425,
+      "std": 192.435
+    },
+    {
+      "feature": "n_eff_fine_tuning",
+      "label": "Capped fine-tuning GPUs",
+      "pearson_r": 0.586,
+      "spearman_r": 0.7062,
+      "mean": 751.622,
+      "std": 290.053
+    },
+    {
+      "feature": "n_eff_inference",
+      "label": "Capped inference GPUs",
+      "pearson_r": -0.0463,
+      "spearman_r": -0.302,
+      "mean": 2697.245,
+      "std": 354.413
+    },
+    {
+      "feature": "n_eff_idle",
+      "label": "V100.rho regressor (idle GPUs)",
+      "pearson_r": -0.3754,
+      "spearman_r": 0.01,
+      "mean": 14.708,
+      "std": 92.605
+    },
+    {
+      "feature": "frac_training",
+      "label": "Share of requested GPUs in training",
+      "pearson_r": -0.6255,
+      "spearman_r": -0.605,
+      "mean": 0.085,
+      "std": 0.054
+    },
+    {
+      "feature": "frac_fine_tuning",
+      "label": "Share of requested GPUs in fine-tuning",
+      "pearson_r": 0.5684,
+      "spearman_r": 0.6925,
+      "mean": 0.2,
+      "std": 0.076
+    },
+    {
+      "feature": "frac_inference",
+      "label": "Share of requested GPUs in inference",
+      "pearson_r": -0.1066,
+      "spearman_r": -0.3033,
+      "mean": 0.716,
+      "std": 0.089
+    },
+    {
+      "feature": "n_jobs_training",
+      "label": "Active training jobs",
+      "pearson_r": -0.5592,
+      "spearman_r": -0.5636,
+      "mean": 6.243,
+      "std": 2.861
+    },
+    {
+      "feature": "n_jobs_fine_tuning",
+      "label": "Active fine-tuning jobs",
+      "pearson_r": 0.6843,
+      "spearman_r": 0.6969,
+      "mean": 34.604,
+      "std": 11.697
+    },
+    {
+      "feature": "n_jobs_inference",
+      "label": "Active inference jobs",
+      "pearson_r": 0.3375,
+      "spearman_r": 0.32,
+      "mean": 936.552,
+      "std": 182.65
+    }
+  ],
+  "partial_correlations": [
+    {
+      "feature": "n_req_training",
+      "partial_r_vs_ganglia": -0.0785
+    },
+    {
+      "feature": "n_req_fine_tuning",
+      "partial_r_vs_ganglia": 0.7768
+    },
+    {
+      "feature": "n_req_inference",
+      "partial_r_vs_ganglia": 0.4736
+    },
+    {
+      "feature": "n_eff_training",
+      "partial_r_vs_ganglia": -0.1887
+    },
+    {
+      "feature": "n_eff_fine_tuning",
+      "partial_r_vs_ganglia": 0.3442
+    },
+    {
+      "feature": "n_eff_inference",
+      "partial_r_vs_ganglia": 0.1266
+    },
+    {
+      "feature": "n_eff_idle",
+      "partial_r_vs_ganglia": -0.0566
+    },
+    {
+      "feature": "alloc_gpus",
+      "partial_r_vs_ganglia": 0.1999
+    }
+  ],
+  "parameters": [
+    {
+      "parameter": "fine_tuning.u_plateau",
+      "regressor": "n_req_fine_tuning",
+      "pearson_r_vs_ganglia": 0.766,
+      "spearman_r_vs_ganglia": 0.7925,
+      "partial_r_vs_ganglia": 0.7768,
+      "pearson_r_capped": 0.586,
+      "pearson_r_dP_vs_residual": 0.0463,
+      "regressor_std": 415.13,
+      "mape_span_pct": 6.454,
+      "shape_score": 0.7768,
+      "level_score": 6.454,
+      "rl_priority": 1.0995
+    },
+    {
+      "parameter": "inference.u_eff",
+      "regressor": "n_req_inference",
+      "pearson_r_vs_ganglia": 0.3182,
+      "spearman_r_vs_ganglia": 0.3048,
+      "partial_r_vs_ganglia": 0.4736,
+      "pearson_r_capped": -0.0463,
+      "pearson_r_dP_vs_residual": 0.486,
+      "regressor_std": 735.93,
+      "mape_span_pct": 55.566,
+      "shape_score": 0.4736,
+      "level_score": 55.566,
+      "rl_priority": 1.4736
+    },
+    {
+      "parameter": "training.u_plateau",
+      "regressor": "n_req_training",
+      "pearson_r_vs_ganglia": -0.5877,
+      "spearman_r_vs_ganglia": -0.5892,
+      "partial_r_vs_ganglia": -0.0785,
+      "pearson_r_capped": -0.6173,
+      "pearson_r_dP_vs_residual": -0.8006,
+      "regressor_std": 223.278,
+      "mape_span_pct": 6.258,
+      "shape_score": 0.0785,
+      "level_score": 6.258,
+      "rl_priority": 0.3914
+    },
+    {
+      "parameter": "rho",
+      "regressor": "n_eff_idle",
+      "pearson_r_vs_ganglia": -0.3754,
+      "spearman_r_vs_ganglia": 0.01,
+      "partial_r_vs_ganglia": -0.0566,
+      "pearson_r_capped": -0.3754,
+      "pearson_r_dP_vs_residual": -0.3414,
+      "regressor_std": 92.605,
+      "mape_span_pct": 0.277,
+      "shape_score": 0.0566,
+      "level_score": 0.277,
+      "rl_priority": 0.0704
+    }
+  ],
+  "sweeps": [
+    {
+      "parameter": "training.u_plateau",
+      "mape_range_pct": [
+        9.373,
+        15.631
+      ],
+      "mape_span_pct": 6.258,
+      "r_range": [
+        -0.0047,
+        0.4973
+      ],
+      "best_on_this_slice": {
+        "value": 0.45,
+        "pearson_r": 0.4973,
+        "mape_pct": 9.373,
+        "bias_kw": 5.819
+      }
+    },
+    {
+      "parameter": "fine_tuning.u_plateau",
+      "mape_range_pct": [
+        10.859,
+        17.313
+      ],
+      "mape_span_pct": 6.454,
+      "r_range": [
+        -0.0701,
+        0.4239
+      ],
+      "best_on_this_slice": {
+        "value": 0.625,
+        "pearson_r": 0.2646,
+        "mape_pct": 10.859,
+        "bias_kw": 7.657
+      }
+    },
+    {
+      "parameter": "inference.u_eff",
+      "mape_range_pct": [
+        10.671,
+        66.237
+      ],
+      "mape_span_pct": 55.566,
+      "r_range": [
+        0.2104,
+        0.5793
+      ],
+      "best_on_this_slice": {
+        "value": 0.2833,
+        "pearson_r": 0.2903,
+        "mape_pct": 10.671,
+        "bias_kw": -9.611
+      }
+    },
+    {
+      "parameter": "rho",
+      "mape_range_pct": [
+        10.914,
+        11.191
+      ],
+      "mape_span_pct": 0.277,
+      "r_range": [
+        0.2737,
+        0.3345
+      ],
+      "best_on_this_slice": {
+        "value": 0.05,
+        "pearson_r": 0.3345,
+        "mape_pct": 10.914,
+        "bias_kw": 19.763
+      }
+    }
+  ],
+  "sweep_curves": {
+    "training.u_plateau": [
+      {
+        "value": 0.45,
+        "pearson_r": 0.4973,
+        "mape_pct": 9.373,
+        "bias_kw": 5.819
+      },
+      {
+        "value": 0.475,
+        "pearson_r": 0.4681,
+        "mape_pct": 9.62,
+        "bias_kw": 8.193
+      },
+      {
+        "value": 0.5,
+        "pearson_r": 0.4382,
+        "mape_pct": 9.882,
+        "bias_kw": 10.566
+      },
+      {
+        "value": 0.525,
+        "pearson_r": 0.4077,
+        "mape_pct": 10.147,
+        "bias_kw": 12.939
+      },
+      {
+        "value": 0.55,
+        "pearson_r": 0.3769,
+        "mape_pct": 10.418,
+        "bias_kw": 15.312
+      },
+      {
+        "value": 0.575,
+        "pearson_r": 0.346,
+        "mape_pct": 10.699,
+        "bias_kw": 17.685
+      },
+      {
+        "value": 0.6,
+        "pearson_r": 0.3152,
+        "mape_pct": 11.006,
+        "bias_kw": 20.059
+      },
+      {
+        "value": 0.625,
+        "pearson_r": 0.2845,
+        "mape_pct": 11.331,
+        "bias_kw": 22.432
+      },
+      {
+        "value": 0.65,
+        "pearson_r": 0.2543,
+        "mape_pct": 11.665,
+        "bias_kw": 24.805
+      },
+      {
+        "value": 0.675,
+        "pearson_r": 0.2247,
+        "mape_pct": 12.008,
+        "bias_kw": 27.178
+      },
+      {
+        "value": 0.7,
+        "pearson_r": 0.1956,
+        "mape_pct": 12.357,
+        "bias_kw": 29.551
+      },
+      {
+        "value": 0.725,
+        "pearson_r": 0.1674,
+        "mape_pct": 12.713,
+        "bias_kw": 31.925
+      },
+      {
+        "value": 0.75,
+        "pearson_r": 0.14,
+        "mape_pct": 13.077,
+        "bias_kw": 34.298
+      },
+      {
+        "value": 0.775,
+        "pearson_r": 0.1135,
+        "mape_pct": 13.469,
+        "bias_kw": 36.671
+      },
+      {
+        "value": 0.8,
+        "pearson_r": 0.0879,
+        "mape_pct": 13.875,
+        "bias_kw": 39.044
+      },
+      {
+        "value": 0.825,
+        "pearson_r": 0.0633,
+        "mape_pct": 14.297,
+        "bias_kw": 41.417
+      },
+      {
+        "value": 0.85,
+        "pearson_r": 0.0396,
+        "mape_pct": 14.727,
+        "bias_kw": 43.79
+      },
+      {
+        "value": 0.875,
+        "pearson_r": 0.017,
+        "mape_pct": 15.175,
+        "bias_kw": 46.164
+      },
+      {
+        "value": 0.9,
+        "pearson_r": -0.0047,
+        "mape_pct": 15.631,
+        "bias_kw": 48.537
+      }
+    ],
+    "fine_tuning.u_plateau": [
+      {
+        "value": 0.45,
+        "pearson_r": -0.0701,
+        "mape_pct": 11.963,
+        "bias_kw": -31.803
+      },
+      {
+        "value": 0.475,
+        "pearson_r": 0.0022,
+        "mape_pct": 11.604,
+        "bias_kw": -26.166
+      },
+      {
+        "value": 0.5,
+        "pearson_r": 0.0646,
+        "mape_pct": 11.362,
+        "bias_kw": -20.529
+      },
+      {
+        "value": 0.525,
+        "pearson_r": 0.118,
+        "mape_pct": 11.184,
+        "bias_kw": -14.892
+      },
+      {
+        "value": 0.55,
+        "pearson_r": 0.1636,
+        "mape_pct": 11.039,
+        "bias_kw": -9.255
+      },
+      {
+        "value": 0.575,
+        "pearson_r": 0.2025,
+        "mape_pct": 10.93,
+        "bias_kw": -3.617
+      },
+      {
+        "value": 0.6,
+        "pearson_r": 0.2359,
+        "mape_pct": 10.871,
+        "bias_kw": 2.02
+      },
+      {
+        "value": 0.625,
+        "pearson_r": 0.2646,
+        "mape_pct": 10.859,
+        "bias_kw": 7.657
+      },
+      {
+        "value": 0.65,
+        "pearson_r": 0.2895,
+        "mape_pct": 10.891,
+        "bias_kw": 13.294
+      },
+      {
+        "value": 0.675,
+        "pearson_r": 0.3112,
+        "mape_pct": 10.975,
+        "bias_kw": 18.931
+      },
+      {
+        "value": 0.7,
+        "pearson_r": 0.3302,
+        "mape_pct": 11.166,
+        "bias_kw": 24.568
+      },
+      {
+        "value": 0.725,
+        "pearson_r": 0.3469,
+        "mape_pct": 11.432,
+        "bias_kw": 30.205
+      },
+      {
+        "value": 0.75,
+        "pearson_r": 0.3618,
+        "mape_pct": 11.809,
+        "bias_kw": 35.843
+      },
+      {
+        "value": 0.775,
+        "pearson_r": 0.375,
+        "mape_pct": 12.383,
+        "bias_kw": 41.48
+      },
+      {
+        "value": 0.8,
+        "pearson_r": 0.3869,
+        "mape_pct": 13.142,
+        "bias_kw": 47.117
+      },
+      {
+        "value": 0.825,
+        "pearson_r": 0.3975,
+        "mape_pct": 14.034,
+        "bias_kw": 52.754
+      },
+      {
+        "value": 0.85,
+        "pearson_r": 0.4072,
+        "mape_pct": 15.051,
+        "bias_kw": 58.391
+      },
+      {
+        "value": 0.875,
+        "pearson_r": 0.4159,
+        "mape_pct": 16.147,
+        "bias_kw": 64.028
+      },
+      {
+        "value": 0.9,
+        "pearson_r": 0.4239,
+        "mape_pct": 17.313,
+        "bias_kw": 69.666
+      }
+    ],
+    "inference.u_eff": [
+      {
+        "value": 0.1,
+        "pearson_r": 0.2104,
+        "mape_pct": 35.409,
+        "bias_kw": -157.96
+      },
+      {
+        "value": 0.1306,
+        "pearson_r": 0.2201,
+        "mape_pct": 30.351,
+        "bias_kw": -133.235
+      },
+      {
+        "value": 0.1611,
+        "pearson_r": 0.2309,
+        "mape_pct": 25.395,
+        "bias_kw": -108.51
+      },
+      {
+        "value": 0.1917,
+        "pearson_r": 0.2431,
+        "mape_pct": 20.546,
+        "bias_kw": -83.785
+      },
+      {
+        "value": 0.2222,
+        "pearson_r": 0.2568,
+        "mape_pct": 15.846,
+        "bias_kw": -59.061
+      },
+      {
+        "value": 0.2528,
+        "pearson_r": 0.2724,
+        "mape_pct": 12.43,
+        "bias_kw": -34.336
+      },
+      {
+        "value": 0.2833,
+        "pearson_r": 0.2903,
+        "mape_pct": 10.671,
+        "bias_kw": -9.611
+      },
+      {
+        "value": 0.3139,
+        "pearson_r": 0.3107,
+        "mape_pct": 10.809,
+        "bias_kw": 15.114
+      },
+      {
+        "value": 0.3444,
+        "pearson_r": 0.3343,
+        "mape_pct": 12.43,
+        "bias_kw": 39.838
+      },
+      {
+        "value": 0.375,
+        "pearson_r": 0.3614,
+        "mape_pct": 16.341,
+        "bias_kw": 64.563
+      },
+      {
+        "value": 0.4056,
+        "pearson_r": 0.3926,
+        "mape_pct": 21.553,
+        "bias_kw": 89.288
+      },
+      {
+        "value": 0.4361,
+        "pearson_r": 0.4279,
+        "mape_pct": 27.118,
+        "bias_kw": 114.013
+      },
+      {
+        "value": 0.4667,
+        "pearson_r": 0.4669,
+        "mape_pct": 32.706,
+        "bias_kw": 138.737
+      },
+      {
+        "value": 0.4972,
+        "pearson_r": 0.5075,
+        "mape_pct": 38.295,
+        "bias_kw": 163.462
+      },
+      {
+        "value": 0.5278,
+        "pearson_r": 0.5449,
+        "mape_pct": 43.883,
+        "bias_kw": 188.187
+      },
+      {
+        "value": 0.5583,
+        "pearson_r": 0.5717,
+        "mape_pct": 49.472,
+        "bias_kw": 212.912
+      },
+      {
+        "value": 0.5889,
+        "pearson_r": 0.5793,
+        "mape_pct": 55.06,
+        "bias_kw": 237.636
+      },
+      {
+        "value": 0.6194,
+        "pearson_r": 0.5632,
+        "mape_pct": 60.649,
+        "bias_kw": 262.361
+      },
+      {
+        "value": 0.65,
+        "pearson_r": 0.5268,
+        "mape_pct": 66.237,
+        "bias_kw": 287.086
+      }
+    ],
+    "rho": [
+      {
+        "value": 0.05,
+        "pearson_r": 0.3345,
+        "mape_pct": 10.914,
+        "bias_kw": 19.763
+      },
+      {
+        "value": 0.0625,
+        "pearson_r": 0.331,
+        "mape_pct": 10.931,
+        "bias_kw": 19.818
+      },
+      {
+        "value": 0.075,
+        "pearson_r": 0.3274,
+        "mape_pct": 10.948,
+        "bias_kw": 19.873
+      },
+      {
+        "value": 0.0875,
+        "pearson_r": 0.3238,
+        "mape_pct": 10.966,
+        "bias_kw": 19.928
+      },
+      {
+        "value": 0.1,
+        "pearson_r": 0.3202,
+        "mape_pct": 10.983,
+        "bias_kw": 19.984
+      },
+      {
+        "value": 0.1125,
+        "pearson_r": 0.3165,
+        "mape_pct": 11.0,
+        "bias_kw": 20.039
+      },
+      {
+        "value": 0.125,
+        "pearson_r": 0.3128,
+        "mape_pct": 11.018,
+        "bias_kw": 20.094
+      },
+      {
+        "value": 0.1375,
+        "pearson_r": 0.309,
+        "mape_pct": 11.035,
+        "bias_kw": 20.149
+      },
+      {
+        "value": 0.15,
+        "pearson_r": 0.3052,
+        "mape_pct": 11.052,
+        "bias_kw": 20.204
+      },
+      {
+        "value": 0.1625,
+        "pearson_r": 0.3014,
+        "mape_pct": 11.07,
+        "bias_kw": 20.259
+      },
+      {
+        "value": 0.175,
+        "pearson_r": 0.2975,
+        "mape_pct": 11.087,
+        "bias_kw": 20.315
+      },
+      {
+        "value": 0.1875,
+        "pearson_r": 0.2936,
+        "mape_pct": 11.104,
+        "bias_kw": 20.37
+      },
+      {
+        "value": 0.2,
+        "pearson_r": 0.2897,
+        "mape_pct": 11.122,
+        "bias_kw": 20.425
+      },
+      {
+        "value": 0.2125,
+        "pearson_r": 0.2858,
+        "mape_pct": 11.139,
+        "bias_kw": 20.48
+      },
+      {
+        "value": 0.225,
+        "pearson_r": 0.2818,
+        "mape_pct": 11.156,
+        "bias_kw": 20.535
+      },
+      {
+        "value": 0.2375,
+        "pearson_r": 0.2777,
+        "mape_pct": 11.174,
+        "bias_kw": 20.59
+      },
+      {
+        "value": 0.25,
+        "pearson_r": 0.2737,
+        "mape_pct": 11.191,
+        "bias_kw": 20.645
+      }
+    ]
+  },
+  "ols_mean_field": {
+    "r2": 0.6506,
+    "pearson_r": 0.8066,
+    "kw_per_gpu": {
+      "training": -0.03678,
+      "fine_tuning": 0.21018,
+      "inference": 0.11213,
+      "idle": 0.06143
+    },
+    "implied_util": {
+      "training.u_plateau": -0.1226,
+      "fine_tuning.u_plateau": 0.7006,
+      "inference.u_eff": 0.3738,
+      "rho": 0.2048
+    }
+  },
+  "rl_search_recommendation": {
+    "search_first": [
+      "fine_tuning.u_plateau",
+      "inference.u_eff"
+    ],
+    "search_next": [],
+    "confounders": [
+      "training.u_plateau"
+    ],
+    "defer": [
+      "rho"
+    ],
+    "also_consider": [
+      "replay.stage_thresholds.training_min_duration_h",
+      "replay.stage_thresholds.training_min_nodes",
+      "replay.stage_thresholds.finetuning_min_duration_h",
+      "replay.stage_thresholds.inference_max_nodes"
+    ],
+    "notes": [
+      "Fleet is oversubscribed on this slice, so idle GPUs are rare and V100.rho barely changes MAPE. Re-check rho on a window with idle capacity.",
+      "training.u_plateau has a strong raw anti-correlation with Ganglia that collapses after controlling for fine-tuning/inference counts \u2014 it is a confounder of stage mix, not an independent driver. Stage-classification thresholds that move jobs between training and fine-tuning are high leverage."
+    ]
+  }
+}

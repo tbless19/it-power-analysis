@@ -53,19 +53,23 @@ Almost all knobs already live in `config.json`. Do **not** retune the formula st
 
 ### 3.1 Must search (high leverage on Ganglia)
 
+Empirical ranking on the 2022-03-20 Ganglia day slice is in
+`docs/ganglia_parameter_correlation.md` (rerun: `python -m rl_tune.correlate_params`).
+
 | Parameter | Why it matters |
 |---|---|
-| `hardware.V100.rho` | Idle GPU fraction. Sets the fleet floor \(N_k P_{\max}\rho/1000\). **V100 currently has no `rho` in config**; validation falls back to `0.117`. This is the first number to put in the search space. |
-| `stage_physics.training.u_plateau` | Mean util of long, large jobs — usually most of the energy. |
-| `stage_physics.fine_tuning.u_plateau` | Same for medium jobs. |
-| `stage_physics.inference.u_burst` | Busy-GPU util for short jobs. |
-| `stage_physics.inference.u_idle` | Idle-GPU util while inference jobs are allocated. |
-| `stage_physics.inference.default_lambda` | Request rate → occupancy of burst vs idle. |
+| `stage_physics.fine_tuning.u_plateau` | Strongest independent correlate of Ganglia (requested-FT GPUs: Pearson r ≈ 0.77, partial r ≈ 0.78). |
+| `stage_physics.inference.u_burst` / `u_idle` / `default_lambda` | Inference GPU count has partial r ≈ 0.47 vs Ganglia; the util mix has the largest 1-D MAPE span. |
+| `replay.stage_thresholds.*` | Training vs fine-tuning mix is the shape signal; thresholds that reclassify jobs are high leverage. |
+| `stage_physics.training.u_plateau` | Large *raw* anti-correlation that mostly vanishes as a partial r — a confounder until classification is trusted. |
+| `hardware.V100.rho` | Idle floor. **V100 currently has no `rho` in config** (fallback 0.117). Nearly inert on this oversubscribed day; re-check on idle windows. |
 | `stage_defaults.{training,fine_tuning,inference}.{u_min,u_max}` | Hard clamps on sampled util. |
 
 ### 3.2 Optional (stage assignment)
 
-`replay.stage_thresholds` (`training_min_duration_h`, `training_min_nodes`, `finetuning_min_duration_h`, `inference_max_nodes`) decide which physics a job uses. Include them only after util parameters stabilize; they interact strongly with plateaus and can make the search non-identifiable.
+`replay.stage_thresholds` are in the search set above. Do not expand them until
+util plateaus are identified on a fixed classification; they interact strongly
+with plateaus.
 
 ### 3.3 Freeze
 

@@ -1,0 +1,46 @@
+config_variable,group,used_in_model,multiplies,pearson_r_vs_ganglia,partial_r_vs_ganglia,note
+stage_defaults.fine_tuning.u_max,fine_tuning,True,n_req_fine_tuning,0.766,0.7768,Upper clamp.
+stage_defaults.fine_tuning.u_min,fine_tuning,True,n_req_fine_tuning,0.766,0.7768,"Lower clamp (plateau 0.68 is inside [0.55, 0.85])."
+stage_physics.fine_tuning.eval_dur_ms,fine_tuning,True,n_req_fine_tuning,0.766,0.7768,Eval duration.
+stage_physics.fine_tuning.eval_period_ms,fine_tuning,True,n_req_fine_tuning,0.766,0.7768,Eval period.
+stage_physics.fine_tuning.eval_u,fine_tuning,True,n_req_fine_tuning,0.766,0.7768,Util during 30 s evals every 240 s (~12.5% duty). Same shape as FT occupancy.
+stage_physics.fine_tuning.eval_u_max,fine_tuning,True,n_req_fine_tuning,0.766,0.7768,Eval clamp.
+stage_physics.fine_tuning.eval_u_min,fine_tuning,True,n_req_fine_tuning,0.766,0.7768,Eval clamp.
+stage_physics.fine_tuning.u_plateau,fine_tuning,True,n_req_fine_tuning,0.766,0.7768,Mean fine-tuning util. Strongest independent correlate of Ganglia.
+m100_preset.gpus_per_node,hardware,True,alloc_gpus,0.6489,0.1999,Assumed 4 V100s/node.
+m100_preset.inventory.V100,hardware,True,alloc_gpus,0.6489,0.1999,Fleet size cap. 97% of bins are already oversubscribed.
+stage_defaults.training.u_max,training,True,n_req_training,-0.5877,-0.0785,Upper clamp (rarely binds).
+stage_defaults.training.u_min,training,True,n_req_training,-0.5877,-0.0785,Lower clamp. Effective training util on this slice because plateau < u_min.
+stage_physics.training.checkpoint_dur_ms,training,True,n_req_training,-0.5877,-0.0785,Checkpoint duration (22 s).
+stage_physics.training.checkpoint_ms,training,True,n_req_training,-0.5877,-0.0785,Checkpoint period. Invisible as a waveform after 5-min median.
+stage_physics.training.checkpoint_u,training,True,n_req_training,-0.5877,-0.0785,Util during 22 s checkpoints every 300 s (~7% duty). Same shape as training occupancy.
+stage_physics.training.checkpoint_u_max,training,True,n_req_training,-0.5877,-0.0785,Checkpoint clamp.
+stage_physics.training.checkpoint_u_min,training,True,n_req_training,-0.5877,-0.0785,Checkpoint clamp.
+stage_physics.training.u_plateau,training,True,n_req_training,-0.5877,-0.0785,"Mean training util. On this slice u_plateau=0.60 is below u_min=0.62, so the clamp usually wins."
+hardware.V100.rho,hardware,True,n_eff_idle,-0.3754,-0.0566,Idle GPU fraction. Missing in config (code defaults 0.117).
+stage_defaults.inference.u_max,inference,True,n_req_inference,0.3182,0.4736,Upper clamp; equals u_burst=0.65 so burst samples clip here.
+stage_defaults.inference.u_min,inference,True,n_req_inference,0.3182,0.4736,Lower clamp (rarely binds vs burst).
+stage_physics.inference.default_lambda,inference,True,n_req_inference,0.3182,0.4736,"Request rate. Changes burst/idle mix, same occupancy shape."
+stage_physics.inference.idle_u_max,inference,True,n_req_inference,0.3182,0.4736,Upper clamp on idle util.
+stage_physics.inference.service_s,inference,True,n_req_inference,0.3182,0.4736,Service time. Same mix effect as lambda.
+stage_physics.inference.u_burst,inference,True,n_req_inference,0.3182,0.4736,"Busy-GPU util. Occupancy λ·τ/3600 ≈ 0.29, so this is ~29% of inference GPUs."
+stage_physics.inference.u_idle,inference,True,n_req_inference,0.3182,0.4736,Idle-while-allocated util. ~71% of inference GPUs.
+hardware.V100.p_max,hardware,True,modeled_fleet_kw,0.2388,,TDP. Scales all modeled watts; freeze at 300 W.
+replay.stage_thresholds.finetuning_min_duration_h,classification,True,,,,Boundary vs inference.
+replay.stage_thresholds.inference_max_nodes,classification,True,,,,Small jobs → inference.
+replay.stage_thresholds.training_min_duration_h,classification,True,,,,Moves jobs between training and fine-tuning. High leverage on mix; no single occupancy series.
+replay.stage_thresholds.training_min_nodes,classification,True,,,,Same: reclassifies large jobs.
+stage_defaults.fine_tuning.u_default,fine_tuning,False,,,,not used by server.py
+stage_defaults.inference.u_default,inference,False,,,,not used by server.py
+stage_defaults.training.u_default,training,False,,,,not used by server.py
+stage_physics.fine_tuning.eval_sigma,fine_tuning,True,,,,Eval noise. Averages out.
+stage_physics.fine_tuning.sigma_plateau,fine_tuning,True,,,,Noise. Averages out on 5-min grid.
+stage_physics.fine_tuning.wave_amp,fine_tuning,False,,,,not used by server.py
+stage_physics.fine_tuning.wave_period_ms,fine_tuning,False,,,,not used by server.py
+stage_physics.inference.sigma_burst,inference,True,,,,Burst noise. Averages out.
+stage_physics.inference.sigma_idle,inference,True,,,,Idle noise. Averages out.
+stage_physics.training.checkpoint_sigma,training,True,,,,Checkpoint noise. Averages out.
+stage_physics.training.sigma_plateau,training,True,,,,Noise around plateau. Averages out on a 5-min Ganglia grid.
+stage_physics.training.wave_amp,training,False,,,,not used by server.py
+stage_physics.training.wave_period_ms,training,False,,,,not used by server.py
+validate.baseline_kw,validate,True,,,,"Constant offset for Tot_ict, not Ganglia. corr(constant, Ganglia) is undefined."

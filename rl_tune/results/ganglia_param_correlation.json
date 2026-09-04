@@ -785,6 +785,458 @@
       "rho": 0.2048
     }
   },
+  "config_variables": [
+    {
+      "config_variable": "stage_defaults.fine_tuning.u_max",
+      "group": "fine_tuning",
+      "used_in_model": true,
+      "multiplies": "n_req_fine_tuning",
+      "pearson_r_vs_ganglia": 0.766,
+      "partial_r_vs_ganglia": 0.7768,
+      "abs_pearson_r": 0.766,
+      "note": "Upper clamp."
+    },
+    {
+      "config_variable": "stage_defaults.fine_tuning.u_min",
+      "group": "fine_tuning",
+      "used_in_model": true,
+      "multiplies": "n_req_fine_tuning",
+      "pearson_r_vs_ganglia": 0.766,
+      "partial_r_vs_ganglia": 0.7768,
+      "abs_pearson_r": 0.766,
+      "note": "Lower clamp (plateau 0.68 is inside [0.55, 0.85])."
+    },
+    {
+      "config_variable": "stage_physics.fine_tuning.eval_dur_ms",
+      "group": "fine_tuning",
+      "used_in_model": true,
+      "multiplies": "n_req_fine_tuning",
+      "pearson_r_vs_ganglia": 0.766,
+      "partial_r_vs_ganglia": 0.7768,
+      "abs_pearson_r": 0.766,
+      "note": "Eval duration."
+    },
+    {
+      "config_variable": "stage_physics.fine_tuning.eval_period_ms",
+      "group": "fine_tuning",
+      "used_in_model": true,
+      "multiplies": "n_req_fine_tuning",
+      "pearson_r_vs_ganglia": 0.766,
+      "partial_r_vs_ganglia": 0.7768,
+      "abs_pearson_r": 0.766,
+      "note": "Eval period."
+    },
+    {
+      "config_variable": "stage_physics.fine_tuning.eval_u",
+      "group": "fine_tuning",
+      "used_in_model": true,
+      "multiplies": "n_req_fine_tuning",
+      "pearson_r_vs_ganglia": 0.766,
+      "partial_r_vs_ganglia": 0.7768,
+      "abs_pearson_r": 0.766,
+      "note": "Util during 30 s evals every 240 s (~12.5% duty). Same shape as FT occupancy."
+    },
+    {
+      "config_variable": "stage_physics.fine_tuning.eval_u_max",
+      "group": "fine_tuning",
+      "used_in_model": true,
+      "multiplies": "n_req_fine_tuning",
+      "pearson_r_vs_ganglia": 0.766,
+      "partial_r_vs_ganglia": 0.7768,
+      "abs_pearson_r": 0.766,
+      "note": "Eval clamp."
+    },
+    {
+      "config_variable": "stage_physics.fine_tuning.eval_u_min",
+      "group": "fine_tuning",
+      "used_in_model": true,
+      "multiplies": "n_req_fine_tuning",
+      "pearson_r_vs_ganglia": 0.766,
+      "partial_r_vs_ganglia": 0.7768,
+      "abs_pearson_r": 0.766,
+      "note": "Eval clamp."
+    },
+    {
+      "config_variable": "stage_physics.fine_tuning.u_plateau",
+      "group": "fine_tuning",
+      "used_in_model": true,
+      "multiplies": "n_req_fine_tuning",
+      "pearson_r_vs_ganglia": 0.766,
+      "partial_r_vs_ganglia": 0.7768,
+      "abs_pearson_r": 0.766,
+      "note": "Mean fine-tuning util. Strongest independent correlate of Ganglia."
+    },
+    {
+      "config_variable": "m100_preset.gpus_per_node",
+      "group": "hardware",
+      "used_in_model": true,
+      "multiplies": "alloc_gpus",
+      "pearson_r_vs_ganglia": 0.6489,
+      "partial_r_vs_ganglia": 0.1999,
+      "abs_pearson_r": 0.6489,
+      "note": "Assumed 4 V100s/node."
+    },
+    {
+      "config_variable": "m100_preset.inventory.V100",
+      "group": "hardware",
+      "used_in_model": true,
+      "multiplies": "alloc_gpus",
+      "pearson_r_vs_ganglia": 0.6489,
+      "partial_r_vs_ganglia": 0.1999,
+      "abs_pearson_r": 0.6489,
+      "note": "Fleet size cap. 97% of bins are already oversubscribed."
+    },
+    {
+      "config_variable": "stage_defaults.training.u_max",
+      "group": "training",
+      "used_in_model": true,
+      "multiplies": "n_req_training",
+      "pearson_r_vs_ganglia": -0.5877,
+      "partial_r_vs_ganglia": -0.0785,
+      "abs_pearson_r": 0.5877,
+      "note": "Upper clamp (rarely binds)."
+    },
+    {
+      "config_variable": "stage_defaults.training.u_min",
+      "group": "training",
+      "used_in_model": true,
+      "multiplies": "n_req_training",
+      "pearson_r_vs_ganglia": -0.5877,
+      "partial_r_vs_ganglia": -0.0785,
+      "abs_pearson_r": 0.5877,
+      "note": "Lower clamp. Effective training util on this slice because plateau < u_min."
+    },
+    {
+      "config_variable": "stage_physics.training.checkpoint_dur_ms",
+      "group": "training",
+      "used_in_model": true,
+      "multiplies": "n_req_training",
+      "pearson_r_vs_ganglia": -0.5877,
+      "partial_r_vs_ganglia": -0.0785,
+      "abs_pearson_r": 0.5877,
+      "note": "Checkpoint duration (22 s)."
+    },
+    {
+      "config_variable": "stage_physics.training.checkpoint_ms",
+      "group": "training",
+      "used_in_model": true,
+      "multiplies": "n_req_training",
+      "pearson_r_vs_ganglia": -0.5877,
+      "partial_r_vs_ganglia": -0.0785,
+      "abs_pearson_r": 0.5877,
+      "note": "Checkpoint period. Invisible as a waveform after 5-min median."
+    },
+    {
+      "config_variable": "stage_physics.training.checkpoint_u",
+      "group": "training",
+      "used_in_model": true,
+      "multiplies": "n_req_training",
+      "pearson_r_vs_ganglia": -0.5877,
+      "partial_r_vs_ganglia": -0.0785,
+      "abs_pearson_r": 0.5877,
+      "note": "Util during 22 s checkpoints every 300 s (~7% duty). Same shape as training occupancy."
+    },
+    {
+      "config_variable": "stage_physics.training.checkpoint_u_max",
+      "group": "training",
+      "used_in_model": true,
+      "multiplies": "n_req_training",
+      "pearson_r_vs_ganglia": -0.5877,
+      "partial_r_vs_ganglia": -0.0785,
+      "abs_pearson_r": 0.5877,
+      "note": "Checkpoint clamp."
+    },
+    {
+      "config_variable": "stage_physics.training.checkpoint_u_min",
+      "group": "training",
+      "used_in_model": true,
+      "multiplies": "n_req_training",
+      "pearson_r_vs_ganglia": -0.5877,
+      "partial_r_vs_ganglia": -0.0785,
+      "abs_pearson_r": 0.5877,
+      "note": "Checkpoint clamp."
+    },
+    {
+      "config_variable": "stage_physics.training.u_plateau",
+      "group": "training",
+      "used_in_model": true,
+      "multiplies": "n_req_training",
+      "pearson_r_vs_ganglia": -0.5877,
+      "partial_r_vs_ganglia": -0.0785,
+      "abs_pearson_r": 0.5877,
+      "note": "Mean training util. On this slice u_plateau=0.60 is below u_min=0.62, so the clamp usually wins."
+    },
+    {
+      "config_variable": "hardware.V100.rho",
+      "group": "hardware",
+      "used_in_model": true,
+      "multiplies": "n_eff_idle",
+      "pearson_r_vs_ganglia": -0.3754,
+      "partial_r_vs_ganglia": -0.0566,
+      "abs_pearson_r": 0.3754,
+      "note": "Idle GPU fraction. Missing in config (code defaults 0.117)."
+    },
+    {
+      "config_variable": "stage_defaults.inference.u_max",
+      "group": "inference",
+      "used_in_model": true,
+      "multiplies": "n_req_inference",
+      "pearson_r_vs_ganglia": 0.3182,
+      "partial_r_vs_ganglia": 0.4736,
+      "abs_pearson_r": 0.3182,
+      "note": "Upper clamp; equals u_burst=0.65 so burst samples clip here."
+    },
+    {
+      "config_variable": "stage_defaults.inference.u_min",
+      "group": "inference",
+      "used_in_model": true,
+      "multiplies": "n_req_inference",
+      "pearson_r_vs_ganglia": 0.3182,
+      "partial_r_vs_ganglia": 0.4736,
+      "abs_pearson_r": 0.3182,
+      "note": "Lower clamp (rarely binds vs burst)."
+    },
+    {
+      "config_variable": "stage_physics.inference.default_lambda",
+      "group": "inference",
+      "used_in_model": true,
+      "multiplies": "n_req_inference",
+      "pearson_r_vs_ganglia": 0.3182,
+      "partial_r_vs_ganglia": 0.4736,
+      "abs_pearson_r": 0.3182,
+      "note": "Request rate. Changes burst/idle mix, same occupancy shape."
+    },
+    {
+      "config_variable": "stage_physics.inference.idle_u_max",
+      "group": "inference",
+      "used_in_model": true,
+      "multiplies": "n_req_inference",
+      "pearson_r_vs_ganglia": 0.3182,
+      "partial_r_vs_ganglia": 0.4736,
+      "abs_pearson_r": 0.3182,
+      "note": "Upper clamp on idle util."
+    },
+    {
+      "config_variable": "stage_physics.inference.service_s",
+      "group": "inference",
+      "used_in_model": true,
+      "multiplies": "n_req_inference",
+      "pearson_r_vs_ganglia": 0.3182,
+      "partial_r_vs_ganglia": 0.4736,
+      "abs_pearson_r": 0.3182,
+      "note": "Service time. Same mix effect as lambda."
+    },
+    {
+      "config_variable": "stage_physics.inference.u_burst",
+      "group": "inference",
+      "used_in_model": true,
+      "multiplies": "n_req_inference",
+      "pearson_r_vs_ganglia": 0.3182,
+      "partial_r_vs_ganglia": 0.4736,
+      "abs_pearson_r": 0.3182,
+      "note": "Busy-GPU util. Occupancy \u03bb\u00b7\u03c4/3600 \u2248 0.29, so this is ~29% of inference GPUs."
+    },
+    {
+      "config_variable": "stage_physics.inference.u_idle",
+      "group": "inference",
+      "used_in_model": true,
+      "multiplies": "n_req_inference",
+      "pearson_r_vs_ganglia": 0.3182,
+      "partial_r_vs_ganglia": 0.4736,
+      "abs_pearson_r": 0.3182,
+      "note": "Idle-while-allocated util. ~71% of inference GPUs."
+    },
+    {
+      "config_variable": "hardware.V100.p_max",
+      "group": "hardware",
+      "used_in_model": true,
+      "multiplies": "modeled_fleet_kw",
+      "pearson_r_vs_ganglia": 0.2388,
+      "partial_r_vs_ganglia": null,
+      "abs_pearson_r": 0.2388,
+      "note": "TDP. Scales all modeled watts; freeze at 300 W."
+    },
+    {
+      "config_variable": "replay.stage_thresholds.finetuning_min_duration_h",
+      "group": "classification",
+      "used_in_model": true,
+      "multiplies": null,
+      "pearson_r_vs_ganglia": null,
+      "partial_r_vs_ganglia": null,
+      "abs_pearson_r": 0.0,
+      "note": "Boundary vs inference."
+    },
+    {
+      "config_variable": "replay.stage_thresholds.inference_max_nodes",
+      "group": "classification",
+      "used_in_model": true,
+      "multiplies": null,
+      "pearson_r_vs_ganglia": null,
+      "partial_r_vs_ganglia": null,
+      "abs_pearson_r": 0.0,
+      "note": "Small jobs \u2192 inference."
+    },
+    {
+      "config_variable": "replay.stage_thresholds.training_min_duration_h",
+      "group": "classification",
+      "used_in_model": true,
+      "multiplies": null,
+      "pearson_r_vs_ganglia": null,
+      "partial_r_vs_ganglia": null,
+      "abs_pearson_r": 0.0,
+      "note": "Moves jobs between training and fine-tuning. High leverage on mix; no single occupancy series."
+    },
+    {
+      "config_variable": "replay.stage_thresholds.training_min_nodes",
+      "group": "classification",
+      "used_in_model": true,
+      "multiplies": null,
+      "pearson_r_vs_ganglia": null,
+      "partial_r_vs_ganglia": null,
+      "abs_pearson_r": 0.0,
+      "note": "Same: reclassifies large jobs."
+    },
+    {
+      "config_variable": "stage_defaults.fine_tuning.u_default",
+      "group": "fine_tuning",
+      "used_in_model": false,
+      "multiplies": null,
+      "pearson_r_vs_ganglia": null,
+      "partial_r_vs_ganglia": null,
+      "abs_pearson_r": 0.0,
+      "note": "not used by server.py"
+    },
+    {
+      "config_variable": "stage_defaults.inference.u_default",
+      "group": "inference",
+      "used_in_model": false,
+      "multiplies": null,
+      "pearson_r_vs_ganglia": null,
+      "partial_r_vs_ganglia": null,
+      "abs_pearson_r": 0.0,
+      "note": "not used by server.py"
+    },
+    {
+      "config_variable": "stage_defaults.training.u_default",
+      "group": "training",
+      "used_in_model": false,
+      "multiplies": null,
+      "pearson_r_vs_ganglia": null,
+      "partial_r_vs_ganglia": null,
+      "abs_pearson_r": 0.0,
+      "note": "not used by server.py"
+    },
+    {
+      "config_variable": "stage_physics.fine_tuning.eval_sigma",
+      "group": "fine_tuning",
+      "used_in_model": true,
+      "multiplies": null,
+      "pearson_r_vs_ganglia": null,
+      "partial_r_vs_ganglia": null,
+      "abs_pearson_r": 0.0,
+      "note": "Eval noise. Averages out."
+    },
+    {
+      "config_variable": "stage_physics.fine_tuning.sigma_plateau",
+      "group": "fine_tuning",
+      "used_in_model": true,
+      "multiplies": null,
+      "pearson_r_vs_ganglia": null,
+      "partial_r_vs_ganglia": null,
+      "abs_pearson_r": 0.0,
+      "note": "Noise. Averages out on 5-min grid."
+    },
+    {
+      "config_variable": "stage_physics.fine_tuning.wave_amp",
+      "group": "fine_tuning",
+      "used_in_model": false,
+      "multiplies": null,
+      "pearson_r_vs_ganglia": null,
+      "partial_r_vs_ganglia": null,
+      "abs_pearson_r": 0.0,
+      "note": "not used by server.py"
+    },
+    {
+      "config_variable": "stage_physics.fine_tuning.wave_period_ms",
+      "group": "fine_tuning",
+      "used_in_model": false,
+      "multiplies": null,
+      "pearson_r_vs_ganglia": null,
+      "partial_r_vs_ganglia": null,
+      "abs_pearson_r": 0.0,
+      "note": "not used by server.py"
+    },
+    {
+      "config_variable": "stage_physics.inference.sigma_burst",
+      "group": "inference",
+      "used_in_model": true,
+      "multiplies": null,
+      "pearson_r_vs_ganglia": null,
+      "partial_r_vs_ganglia": null,
+      "abs_pearson_r": 0.0,
+      "note": "Burst noise. Averages out."
+    },
+    {
+      "config_variable": "stage_physics.inference.sigma_idle",
+      "group": "inference",
+      "used_in_model": true,
+      "multiplies": null,
+      "pearson_r_vs_ganglia": null,
+      "partial_r_vs_ganglia": null,
+      "abs_pearson_r": 0.0,
+      "note": "Idle noise. Averages out."
+    },
+    {
+      "config_variable": "stage_physics.training.checkpoint_sigma",
+      "group": "training",
+      "used_in_model": true,
+      "multiplies": null,
+      "pearson_r_vs_ganglia": null,
+      "partial_r_vs_ganglia": null,
+      "abs_pearson_r": 0.0,
+      "note": "Checkpoint noise. Averages out."
+    },
+    {
+      "config_variable": "stage_physics.training.sigma_plateau",
+      "group": "training",
+      "used_in_model": true,
+      "multiplies": null,
+      "pearson_r_vs_ganglia": null,
+      "partial_r_vs_ganglia": null,
+      "abs_pearson_r": 0.0,
+      "note": "Noise around plateau. Averages out on a 5-min Ganglia grid."
+    },
+    {
+      "config_variable": "stage_physics.training.wave_amp",
+      "group": "training",
+      "used_in_model": false,
+      "multiplies": null,
+      "pearson_r_vs_ganglia": null,
+      "partial_r_vs_ganglia": null,
+      "abs_pearson_r": 0.0,
+      "note": "not used by server.py"
+    },
+    {
+      "config_variable": "stage_physics.training.wave_period_ms",
+      "group": "training",
+      "used_in_model": false,
+      "multiplies": null,
+      "pearson_r_vs_ganglia": null,
+      "partial_r_vs_ganglia": null,
+      "abs_pearson_r": 0.0,
+      "note": "not used by server.py"
+    },
+    {
+      "config_variable": "validate.baseline_kw",
+      "group": "validate",
+      "used_in_model": true,
+      "multiplies": null,
+      "pearson_r_vs_ganglia": null,
+      "partial_r_vs_ganglia": null,
+      "abs_pearson_r": 0.0,
+      "note": "Constant offset for Tot_ict, not Ganglia. corr(constant, Ganglia) is undefined."
+    }
+  ],
   "rl_search_recommendation": {
     "search_first": [
       "fine_tuning.u_plateau",

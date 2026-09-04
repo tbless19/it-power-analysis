@@ -67,6 +67,12 @@ class TestCorrHelpers(unittest.TestCase):
             "training.u_plateau",
             report["rl_search_recommendation"]["confounders"],
         )
+        by_cfg = {r["config_variable"]: r for r in report["config_variables"]}
+        self.assertGreater(
+            by_cfg["stage_physics.fine_tuning.u_plateau"]["pearson_r_vs_ganglia"], 0.7
+        )
+        self.assertIsNone(by_cfg["stage_physics.training.wave_amp"]["pearson_r_vs_ganglia"])
+        self.assertFalse(by_cfg["stage_physics.training.wave_amp"]["used_in_model"])
 
     def test_features_from_slice_shapes(self):
         data = {

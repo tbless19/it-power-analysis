@@ -382,6 +382,7 @@ def analyze(data: dict | None = None, p_max_w: float = 300.0) -> dict[str, Any]:
         "sweeps": [{k: v for k, v in r.items() if k != "curve"} for r in sweep_rows],
         "sweep_curves": {r["parameter"]: r["curve"] for r in sweep_rows},
         "ols_mean_field": ols,
+        "config_variables": config_variable_correlations(feats, g),
         "rl_search_recommendation": _recommendation(ranked, n_over),
         "_feats": feats,
         "_sweep_curves": sweep_rows,
@@ -433,35 +434,293 @@ def _recommendation(ranked: list[dict], oversubscribed_fraction: float) -> dict:
         ],
         "notes": notes,
     }
-    notes = []
-    if oversubscribed_fraction >= 0.8:
-        notes.append(
-            "Fleet is oversubscribed on this slice, so idle GPUs are rare and "
-            "V100.rho barely changes MAPE. Re-check rho on a window with idle capacity."
-        )
-    notes.append(
-        "training.u_plateau has a strong raw anti-correlation with Ganglia that "
-        "collapses after controlling for fine-tuning/inference counts — it is a "
-        "confounder of stage mix, not an independent driver. Stage-classification "
-        "thresholds that move jobs between training and fine-tuning are high leverage."
-    )
-    return {
-        "search_first": high,
-        "search_next": medium,
-        "defer": low,
-        "also_consider": [
-            "replay.stage_thresholds.training_min_duration_h",
-            "replay.stage_thresholds.training_min_nodes",
-            "replay.stage_thresholds.finetuning_min_duration_h",
-            "replay.stage_thresholds.inference_max_nodes",
-        ],
-        "notes": notes,
-    }
 
 
 def _jsonable(report: dict) -> dict:
     skip = {"_feats", "_sweep_curves", "_g", "_base"}
     return {k: v for k, v in report.items() if k not in skip}
+
+
+# Every M100-relevant config.json key → the Ganglia time series it scales.
+# Config values are constants, so Pearson r is corr(∂P/∂θ, P_ganglia).
+# Knobs that multiply the same occupancy series share the same r.
+CONFIG_VARIABLES = [
+    # hardware
+    {"key": "hardware.V100.p_max", "used": True,
+     "regressor": "modeled_fleet_kw", "group": "hardware",
+     "note": "TDP. Scales all modeled watts; freeze at 300 W."},
+    {"key": "hardware.V100.rho", "used": True,
+     "regressor": "n_eff_idle", "group": "hardware",
+     "note": "Idle GPU fraction. Missing in config (code defaults 0.117)."},
+    # training physics + clamps
+    {"key": "stage_physics.training.u_plateau", "used": True,
+     "regressor": "n_req_training", "group": "training",
+     "note": "Mean training util. On this slice u_plateau=0.60 is below u_min=0.62, so the clamp usually wins."},
+    {"key": "stage_defaults.training.u_min", "used": True,
+     "regressor": "n_req_training", "group": "training",
+     "note": "Lower clamp. Effective training util on this slice because plateau < u_min."},
+    {"key": "stage_defaults.training.u_max", "used": True,
+     "regressor": "n_req_training", "group": "training",
+     "note": "Upper clamp (rarely binds)."},
+    {"key": "stage_defaults.training.u_default", "used": False,
+     "regressor": None, "group": "training",
+     "note": "Not read by server.py (UI only)."},
+    {"key": "stage_physics.training.sigma_plateau", "used": True,
+     "regressor": None, "group": "training",
+     "note": "Noise around plateau. Averages out on a 5-min Ganglia grid."},
+    {"key": "stage_physics.training.wave_amp", "used": False,
+     "regressor": None, "group": "training",
+     "note": "In config.json but not used by server.py."},
+    {"key": "stage_physics.training.wave_period_ms", "used": False,
+     "regressor": None, "group": "training",
+     "note": "In config.json but not used by server.py."},
+    {"key": "stage_physics.training.checkpoint_u", "used": True,
+     "regressor": "n_req_training", "group": "training",
+     "note": "Util during 22 s checkpoints every 300 s (~7% duty). Same shape as training occupancy."},
+    {"key": "stage_physics.training.checkpoint_ms", "used": True,
+     "regressor": "n_req_training", "group": "training",
+     "note": "Checkpoint period. Invisible as a waveform after 5-min median."},
+    {"key": "stage_physics.training.checkpoint_dur_ms", "used": True,
+     "regressor": "n_req_training", "group": "training",
+     "note": "Checkpoint duration (22 s)."},
+    {"key": "stage_physics.training.checkpoint_sigma", "used": True,
+     "regressor": None, "group": "training",
+     "note": "Checkpoint noise. Averages out."},
+    {"key": "stage_physics.training.checkpoint_u_min", "used": True,
+     "regressor": "n_req_training", "group": "training",
+     "note": "Checkpoint clamp."},
+    {"key": "stage_physics.training.checkpoint_u_max", "used": True,
+     "regressor": "n_req_training", "group": "training",
+     "note": "Checkpoint clamp."},
+    # fine-tuning
+    {"key": "stage_physics.fine_tuning.u_plateau", "used": True,
+     "regressor": "n_req_fine_tuning", "group": "fine_tuning",
+     "note": "Mean fine-tuning util. Strongest independent correlate of Ganglia."},
+    {"key": "stage_defaults.fine_tuning.u_min", "used": True,
+     "regressor": "n_req_fine_tuning", "group": "fine_tuning",
+     "note": "Lower clamp (plateau 0.68 is inside [0.55, 0.85])."},
+    {"key": "stage_defaults.fine_tuning.u_max", "used": True,
+     "regressor": "n_req_fine_tuning", "group": "fine_tuning",
+     "note": "Upper clamp."},
+    {"key": "stage_defaults.fine_tuning.u_default", "used": False,
+     "regressor": None, "group": "fine_tuning",
+     "note": "Not read by server.py (UI only)."},
+    {"key": "stage_physics.fine_tuning.sigma_plateau", "used": True,
+     "regressor": None, "group": "fine_tuning",
+     "note": "Noise. Averages out on 5-min grid."},
+    {"key": "stage_physics.fine_tuning.wave_amp", "used": False,
+     "regressor": None, "group": "fine_tuning",
+     "note": "In config.json but not used by server.py."},
+    {"key": "stage_physics.fine_tuning.wave_period_ms", "used": False,
+     "regressor": None, "group": "fine_tuning",
+     "note": "In config.json but not used by server.py."},
+    {"key": "stage_physics.fine_tuning.eval_u", "used": True,
+     "regressor": "n_req_fine_tuning", "group": "fine_tuning",
+     "note": "Util during 30 s evals every 240 s (~12.5% duty). Same shape as FT occupancy."},
+    {"key": "stage_physics.fine_tuning.eval_period_ms", "used": True,
+     "regressor": "n_req_fine_tuning", "group": "fine_tuning",
+     "note": "Eval period."},
+    {"key": "stage_physics.fine_tuning.eval_dur_ms", "used": True,
+     "regressor": "n_req_fine_tuning", "group": "fine_tuning",
+     "note": "Eval duration."},
+    {"key": "stage_physics.fine_tuning.eval_sigma", "used": True,
+     "regressor": None, "group": "fine_tuning",
+     "note": "Eval noise. Averages out."},
+    {"key": "stage_physics.fine_tuning.eval_u_min", "used": True,
+     "regressor": "n_req_fine_tuning", "group": "fine_tuning",
+     "note": "Eval clamp."},
+    {"key": "stage_physics.fine_tuning.eval_u_max", "used": True,
+     "regressor": "n_req_fine_tuning", "group": "fine_tuning",
+     "note": "Eval clamp."},
+    # inference
+    {"key": "stage_physics.inference.u_burst", "used": True,
+     "regressor": "n_req_inference", "group": "inference",
+     "note": "Busy-GPU util. Occupancy λ·τ/3600 ≈ 0.29, so this is ~29% of inference GPUs."},
+    {"key": "stage_physics.inference.u_idle", "used": True,
+     "regressor": "n_req_inference", "group": "inference",
+     "note": "Idle-while-allocated util. ~71% of inference GPUs."},
+    {"key": "stage_physics.inference.default_lambda", "used": True,
+     "regressor": "n_req_inference", "group": "inference",
+     "note": "Request rate. Changes burst/idle mix, same occupancy shape."},
+    {"key": "stage_physics.inference.service_s", "used": True,
+     "regressor": "n_req_inference", "group": "inference",
+     "note": "Service time. Same mix effect as lambda."},
+    {"key": "stage_physics.inference.sigma_burst", "used": True,
+     "regressor": None, "group": "inference",
+     "note": "Burst noise. Averages out."},
+    {"key": "stage_physics.inference.sigma_idle", "used": True,
+     "regressor": None, "group": "inference",
+     "note": "Idle noise. Averages out."},
+    {"key": "stage_physics.inference.idle_u_max", "used": True,
+     "regressor": "n_req_inference", "group": "inference",
+     "note": "Upper clamp on idle util."},
+    {"key": "stage_defaults.inference.u_min", "used": True,
+     "regressor": "n_req_inference", "group": "inference",
+     "note": "Lower clamp (rarely binds vs burst)."},
+    {"key": "stage_defaults.inference.u_max", "used": True,
+     "regressor": "n_req_inference", "group": "inference",
+     "note": "Upper clamp; equals u_burst=0.65 so burst samples clip here."},
+    {"key": "stage_defaults.inference.u_default", "used": False,
+     "regressor": None, "group": "inference",
+     "note": "Not read by server.py (UI only)."},
+    # classification / inventory / validate
+    {"key": "replay.stage_thresholds.training_min_duration_h", "used": True,
+     "regressor": None, "group": "classification",
+     "note": "Moves jobs between training and fine-tuning. High leverage on mix; no single occupancy series."},
+    {"key": "replay.stage_thresholds.training_min_nodes", "used": True,
+     "regressor": None, "group": "classification",
+     "note": "Same: reclassifies large jobs."},
+    {"key": "replay.stage_thresholds.finetuning_min_duration_h", "used": True,
+     "regressor": None, "group": "classification",
+     "note": "Boundary vs inference."},
+    {"key": "replay.stage_thresholds.inference_max_nodes", "used": True,
+     "regressor": None, "group": "classification",
+     "note": "Small jobs → inference."},
+    {"key": "m100_preset.inventory.V100", "used": True,
+     "regressor": "alloc_gpus", "group": "hardware",
+     "note": "Fleet size cap. 97% of bins are already oversubscribed."},
+    {"key": "m100_preset.gpus_per_node", "used": True,
+     "regressor": "alloc_gpus", "group": "hardware",
+     "note": "Assumed 4 V100s/node."},
+    {"key": "validate.baseline_kw", "used": True,
+     "regressor": None, "group": "validate",
+     "note": "Constant offset for Tot_ict, not Ganglia. corr(constant, Ganglia) is undefined."},
+]
+
+
+def config_variable_correlations(feats: dict[str, np.ndarray], g: np.ndarray) -> list[dict]:
+    """Pearson / partial r of each config.json variable's ∂P/∂θ vs Ganglia."""
+    controls = {
+        "n_req_training": np.column_stack([feats["n_req_fine_tuning"], feats["n_req_inference"]]),
+        "n_req_fine_tuning": np.column_stack([feats["n_req_training"], feats["n_req_inference"]]),
+        "n_req_inference": np.column_stack([feats["n_req_training"], feats["n_req_fine_tuning"]]),
+        "n_eff_idle": np.column_stack([
+            feats["n_req_training"], feats["n_req_fine_tuning"], feats["n_req_inference"]
+        ]),
+        "alloc_gpus": np.column_stack([
+            feats["n_req_training"], feats["n_req_fine_tuning"], feats["n_req_inference"]
+        ]),
+        "modeled_fleet_kw": None,
+    }
+    rows = []
+    for spec in CONFIG_VARIABLES:
+        key = spec["regressor"]
+        if not spec["used"]:
+            r = pr = None
+            reason = "not used by server.py"
+        elif key is None:
+            r = pr = None
+            reason = spec["note"]
+        elif np.std(feats[key]) == 0:
+            r = pr = None
+            reason = "regressor is constant on this slice"
+        else:
+            r = pearson(feats[key], g)
+            Z = controls.get(key)
+            pr = partial_r(g, feats[key], Z) if Z is not None else None
+            reason = spec["note"]
+        rows.append({
+            "config_variable": spec["key"],
+            "group": spec["group"],
+            "used_in_model": spec["used"],
+            "multiplies": key,
+            "pearson_r_vs_ganglia": _round(r),
+            "partial_r_vs_ganglia": _round(pr),
+            "abs_pearson_r": _round(abs(r) if r is not None else 0.0),
+            "note": reason,
+        })
+    rows.sort(key=lambda d: (
+        0 if d["pearson_r_vs_ganglia"] is not None else 1,
+        -(d["abs_pearson_r"] or 0.0),
+        d["config_variable"],
+    ))
+    return rows
+
+
+def write_config_variable_table(rows: list[dict], md_path: str, csv_path: str) -> None:
+    os.makedirs(os.path.dirname(md_path), exist_ok=True)
+    os.makedirs(os.path.dirname(csv_path), exist_ok=True)
+    import csv
+    fields = [
+        "config_variable", "group", "used_in_model", "multiplies",
+        "pearson_r_vs_ganglia", "partial_r_vs_ganglia", "note",
+    ]
+    with open(csv_path, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
+        w.writeheader()
+        for row in rows:
+            w.writerow(row)
+
+    def _pick(name):
+        for row in rows:
+            if row["config_variable"] == name:
+                return row
+        return {}
+
+    ft = _pick("stage_physics.fine_tuning.u_plateau")
+    inf = _pick("stage_physics.inference.u_burst")
+    tr = _pick("stage_physics.training.u_plateau")
+    rho = _pick("hardware.V100.rho")
+    pmax = _pick("hardware.V100.p_max")
+    inv = _pick("m100_preset.inventory.V100")
+
+    def fmt_r(row, field="pearson_r_vs_ganglia"):
+        v = row.get(field)
+        return "—" if v is None else f"{v:+.3f}"
+
+    lines = [
+        "# Correlation of config.json variables with Ganglia GPU power",
+        "",
+        "Yes: this is **each `config.json` knob vs measured Ganglia GPU power** "
+        "on 2022-03-20. Config values are constants, so the r below is",
+        "",
+        r"\[ r\big(\partial P/\partial \theta,\; P_{\mathrm{ganglia}}\big) \]",
+        "",
+        "Knobs that scale the same GPU-count series share the same r. "
+        "**Partial r** holds the other stages fixed — use that to decide independence.",
+        "",
+        "## Summary (one r per occupancy family)",
+        "",
+        "| config.json family | Pearson r | Partial r | Independent driver? |",
+        "|---|---:|---:|---|",
+        f"| `stage_physics.fine_tuning.u_plateau` (also FT `u_min`/`u_max`, `eval_*`) | **{fmt_r(ft)}** | **{fmt_r(ft, 'partial_r_vs_ganglia')}** | **Yes — search first** |",
+        f"| `m100_preset.inventory.V100` / `gpus_per_node` | {fmt_r(inv)} | {fmt_r(inv, 'partial_r_vs_ganglia')} | Occupancy cap, not a util knob |",
+        f"| `stage_physics.inference.u_burst`, `u_idle`, `default_lambda`, `service_s` | {fmt_r(inf)} | **{fmt_r(inf, 'partial_r_vs_ganglia')}** | **Yes — search first (level)** |",
+        f"| `hardware.V100.p_max` | {fmt_r(pmax)} | — | Freeze (physical TDP 300 W) |",
+        f"| `hardware.V100.rho` | {fmt_r(rho)} | {fmt_r(rho, 'partial_r_vs_ganglia')} | No (almost no idle GPUs this day) |",
+        f"| `stage_physics.training.u_plateau` (also training clamps / `checkpoint_*`) | {fmt_r(tr)} | {fmt_r(tr, 'partial_r_vs_ganglia')} | **No — confounder of stage mix** |",
+        "| `stage_physics.*.sigma_*`, `wave_*`, `u_default`, `validate.baseline_kw` | — | — | Unused, noise, or not Ganglia |",
+        "",
+        "## Full config.json list",
+        "",
+        "| config.json variable | Pearson r vs Ganglia | Partial r | Used? | Multiplies |",
+        "|---|---:|---:|:---:|---|",
+    ]
+    for row in rows:
+        r = "—" if row["pearson_r_vs_ganglia"] is None else f"{row['pearson_r_vs_ganglia']:+.3f}"
+        pr = "—" if row["partial_r_vs_ganglia"] is None else f"{row['partial_r_vs_ganglia']:+.3f}"
+        used = "yes" if row["used_in_model"] else "no"
+        mult = row["multiplies"] or "—"
+        lines.append(
+            f"| `{row['config_variable']}` | {r} | {pr} | {used} | `{mult}` |"
+        )
+    lines += [
+        "",
+        "## How to read this",
+        "",
+        "- **|r| near 0.77:** fine-tuning occupancy. `fine_tuning.u_plateau` (and its clamps/eval util) is the config variable whose effect matches Ganglia.",
+        "- **|r| near 0.32 (partial ~0.47):** inference occupancy. `u_burst`, `u_idle`, `default_lambda`, `service_s`.",
+        "- **|r| near −0.59 but partial ≈ 0:** training occupancy. Looks correlated, is a confounder of stage mix.",
+        "- **rho |r| ≈ −0.38, partial ≈ 0:** idle GPUs are almost never present this day.",
+        "- **Unused / noise / Tot_ict baseline:** no Ganglia correlation to estimate.",
+        "",
+        "![Config variable r](../rl_tune/results/config_vars_vs_ganglia.png)",
+        "",
+        "CSV: `rl_tune/results/config_variables_vs_ganglia.csv`.",
+        "",
+    ]
+    with open(md_path, "w") as f:
+        f.write("\n".join(lines))
 
 
 def plot_report(report: dict, out_dir: str) -> list[str]:
@@ -601,6 +860,44 @@ def plot_report(report: dict, out_dir: str) -> list[str]:
     plt.close(fig)
     paths.append(p)
 
+    # 6. Every config.json variable that has a Ganglia r
+    cfg_rows = [r for r in report.get("config_variables") or []
+                if r.get("pearson_r_vs_ganglia") is not None]
+    # one bar per unique regressor (avoid 15 duplicate FT rows)
+    seen = {}
+    for r in cfg_rows:
+        seen.setdefault(r["multiplies"], r)
+    canon = {
+        "n_req_fine_tuning": "fine_tuning.u_plateau  (and FT clamps / eval_u)",
+        "n_req_training": "training.u_plateau  (and training clamps / checkpoint_u)",
+        "n_req_inference": "inference.u_burst / u_idle / lambda / service_s",
+        "n_eff_idle": "hardware.V100.rho",
+        "modeled_fleet_kw": "hardware.V100.p_max",
+        "alloc_gpus": "m100_preset.inventory.V100 / gpus_per_node",
+    }
+    uniq = list(seen.values())
+    uniq.sort(key=lambda d: abs(d["pearson_r_vs_ganglia"] or 0), reverse=True)
+    labels, vals = [], []
+    for r in uniq:
+        labels.append(canon.get(r["multiplies"], r["config_variable"]))
+        vals.append(r["pearson_r_vs_ganglia"] or 0.0)
+    fig, ax = plt.subplots(figsize=(9.0, max(3.5, 0.38 * len(labels) + 1.2)))
+    colors = ["#e07a3d" if v >= 0.5 else "#3b6ea5" if v > 0 else "#a33" for v in vals]
+    y = np.arange(len(labels))
+    ax.barh(y, vals, color=colors)
+    ax.set_yticks(y)
+    ax.set_yticklabels(labels, fontsize=8)
+    ax.axvline(0, color="#333", lw=0.8)
+    ax.set_xlim(-1.05, 1.05)
+    ax.set_xlabel("Pearson r of ∂P/∂θ vs Ganglia GPU power")
+    ax.set_title("config.json variables vs Ganglia (one r per occupancy series)")
+    ax.grid(axis="x", linestyle=":", alpha=0.6)
+    fig.tight_layout()
+    p = os.path.join(out_dir, "config_vars_vs_ganglia.png")
+    fig.savefig(p, dpi=140)
+    plt.close(fig)
+    paths.append(p)
+
     return paths
 
 
@@ -702,6 +999,8 @@ def write_markdown(report: dict, path: str) -> None:
         "",
         "Raw numbers: `rl_tune/results/ganglia_param_correlation.json`.",
         "",
+        "Full config.json variable table: `docs/config_variables_vs_ganglia.md`.",
+        "",
     ]
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w") as f:
@@ -719,11 +1018,17 @@ def main(argv: list[str] | None = None) -> int:
     plots = plot_report(report, out_dir)
     md_path = os.path.join(_ROOT, "docs", "ganglia_parameter_correlation.md")
     write_markdown(report, md_path)
+    cfg_md = os.path.join(_ROOT, "docs", "config_variables_vs_ganglia.md")
+    cfg_csv = os.path.join(out_dir, "config_variables_vs_ganglia.csv")
+    write_config_variable_table(report["config_variables"], cfg_md, cfg_csv)
     print(json.dumps({
         "json": json_path,
         "markdown": md_path,
+        "config_variables_md": cfg_md,
+        "config_variables_csv": cfg_csv,
         "plots": plots,
         "parameters": report["parameters"],
+        "config_variables": report["config_variables"],
         "recommendation": report["rl_search_recommendation"],
     }, indent=2))
     return 0

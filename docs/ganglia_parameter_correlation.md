@@ -1,4 +1,21 @@
-# Parameters correlated with Ganglia GPU power
+## Data
+
+Intended bundle (professor Drive folder):
+
+https://drive.google.com/drive/folders/1M0t-VCc8n8SLASO934fr3h5tW7_aw46J
+
+This environment cannot read that folder until it is shared as **Anyone with the link (Viewer)** (`gdown` currently gets HTTP 401). After that:
+
+```bash
+pip install -r rl_tune/requirements.txt
+python -m rl_tune.fetch_drive_data
+export EXADATA_ROOT=/workspace/data
+python -m rl_tune.correlate_params
+```
+
+The numbers below still come from the cached 2022-03-20 ganglia day slice in the repo (`validation_v2/slice_cache/day_slice.json`), not from the Drive bundle.
+
+---
 
 Window: **22-03** `2022-03-20T00:00:00Z` → `2022-03-21T00:00:00Z` (288 points at 5 min).
 

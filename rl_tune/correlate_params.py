@@ -101,7 +101,46 @@ def load_config() -> dict:
         return json.load(f)
 
 
+def _months_with_ganglia_and_jobs() -> list[str]:
+    try:
+        from validation import exadata
+    except ImportError:
+        return []
+    info = exadata.list_windows()
+    if not info.get("exists"):
+        return []
+    out = []
+    for m in info.get("months") or []:
+        plugins = set(m.get("plugins") or [])
+        if "ganglia_pub" in plugins and "job_table" in plugins:
+            out.append(m["year_month"])
+    return out
+
+
+def _try_live_slice() -> dict | None:
+    """Build a 1-day ganglia slice from local ExaData if the bundle is present."""
+    months = _months_with_ganglia_and_jobs()
+    if not months:
+        return None
+    from validation_v2.explorer_core import build_slice, default_slice_config
+    cfg = default_slice_config()
+    if cfg.get("year_month") not in months:
+        ym = months[0]
+        yy, mm = ym.split("-")
+        year = 2000 + int(yy)
+        cfg["year_month"] = ym
+        cfg["t0"] = f"{year}-{mm}-15T00:00:00Z"
+        cfg["t1"] = f"{year}-{mm}-16T00:00:00Z"
+    cache = os.path.join(DEFAULT_OUT, "live_day_slice.json")
+    force = os.environ.get("EXADATA_FORCE", "").lower() in ("1", "true", "yes")
+    print(f"Using local ExaData month={cfg['year_month']} {cfg['t0']} → {cfg['t1']}", flush=True)
+    return build_slice(cfg, force=force, cache_path=cache)
+
+
 def load_slice(path: str = DEFAULT_SLICE) -> dict:
+    live = _try_live_slice()
+    if live is not None:
+        return live
     with open(path) as f:
         return json.load(f)
 

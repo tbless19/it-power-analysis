@@ -1,41 +1,43 @@
-# Local ExaData for Ganglia correlation
+# Correlate config.json with Ganglia on your machine
 
-This cloud agent **cannot read files on your laptop**. Copy the bundle into
-this repo’s `data/` folder (gitignored) or set `EXADATA_ROOT`.
+This cloud VM cannot see your Downloads folder. Run this **locally**.
 
-## Layout
+Your layout matches what the script expects:
 
 ```
-data/dataset=main_datasets/
-  year_month=22-03/
-    plugin=ganglia_pub/part-000.parquet   # or part-000-*.parquet
-    plugin=job_table/part-000.parquet
-  year_month=22-04/
-    ...
+dataset=main_datasets/
+  year_month=22-03/plugin=ganglia_pub/
+  year_month=22-03/plugin=job_table/
+  year_month=22-04/ …
+  year_month=22-09/ …
 ```
 
-`validation/exadata.py` also accepts `data/` already holding `year_month=*`.
+## Command
 
-## Run on your machine
+From the `it-power-analysis` repo (use the real path to `dataset=main_datasets`):
 
 ```bash
-export EXADATA_ROOT="/absolute/path/to/dataset=main_datasets"
-python -m rl_tune.correlate_params
+pip install -r validation/requirements.txt -r rl_tune/requirements.txt
+
+python -m rl_tune.run_local_correlation \
+    --root "/full/path/to/dataset=main_datasets"
 ```
 
-That writes `docs/config_variables_vs_ganglia.md` from **your** Ganglia, not the
-cached 2022-03-20 slice.
+That walks every `year_month=*`, loads **one day per month** (the 15th; next days if that date is empty), and writes:
 
-Force a rebuild after replacing parquet files:
+- `rl_tune/results_local/config_variables_vs_ganglia.md`
+- `rl_tune/results_local/config_variables_vs_ganglia.csv`
+- plots (`config_vars_vs_ganglia.png`, …)
+
+Optional:
 
 ```bash
-EXADATA_FORCE=1 python -m rl_tune.correlate_params
+# only some months, 20th of each month, rebuild caches
+python -m rl_tune.run_local_correlation \
+    --root "/full/path/to/dataset=main_datasets" \
+    --months 22-03 22-04 22-05 22-06 22-07 22-09 \
+    --day 20 \
+    --force
 ```
 
-## Give the files to the cloud agent
-
-Do **not** git-commit parquet (already gitignored). Any of:
-
-1. Attach `ganglia_pub` + `job_table` parquet for at least one month in chat
-2. Share the Drive folder as **Anyone with the link → Viewer**, then say to retry
-3. Open this repo in Cursor Desktop on the machine that already has `data/`
+A full month of raw Ganglia is huge (~20 s × ~980 nodes). One day per month is enough to rank config knobs; do not pass a whole month unless you have a lot of RAM/time.

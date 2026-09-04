@@ -74,6 +74,41 @@ class TestCorrHelpers(unittest.TestCase):
         self.assertIsNone(by_cfg["stage_physics.training.wave_amp"]["pearson_r_vs_ganglia"])
         self.assertFalse(by_cfg["stage_physics.training.wave_amp"]["used_in_model"])
 
+    def test_concat_slices_stacks_days(self):
+        from rl_tune.run_local_correlation import concat_slices, _pick_day_window
+
+        def tiny(kw, tr):
+            return {
+                "measured": {"kw": kw, "labels": ["a"]},
+                "modeled": {
+                    "fleet_kw": kw,
+                    "alloc_gpus": [1, 2],
+                    "active_nodes": {
+                        "training": tr,
+                        "fine_tuning": [0, 0],
+                        "inference": [1, 1],
+                    },
+                    "active_jobs": {
+                        "training": [1, 1],
+                        "fine_tuning": [0, 0],
+                        "inference": [2, 2],
+                    },
+                    "by_stage": {
+                        "training": [0.1, 0.2],
+                        "fine_tuning": [0, 0],
+                        "inference": [0.3, 0.3],
+                    },
+                },
+                "meta": {"window": {"t0": "a", "t1": "b"}, "inventory": {"V100": 10}, "hw_type": "V100"},
+            }
+
+        pooled = concat_slices([tiny([10.0, 11.0], [3, 4]), tiny([12.0], [5])])
+        self.assertEqual(len(pooled["measured"]["kw"]), 3)
+        self.assertEqual(pooled["modeled"]["active_nodes"]["training"], [3, 4, 5])
+        t0, t1 = _pick_day_window("22-03", 15)
+        self.assertEqual(t0, "2022-03-15T00:00:00Z")
+        self.assertEqual(t1, "2022-03-16T00:00:00Z")
+
     def test_features_from_slice_shapes(self):
         data = {
             "measured": {"kw": [10.0, 20.0, 30.0, 40.0]},
